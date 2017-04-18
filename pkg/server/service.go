@@ -21,7 +21,10 @@ import (
 
 	"k8s.io/kubernetes/pkg/kubelet/api/v1alpha1/runtime"
 
-	_ "github.com/containerd/containerd/api/services/content" // TODO
+	// TODO remove the underscores from the following imports as the services are
+	// implemented. "_" is being used to hold the reference to keep autocomplete
+	// from deleting them until referenced below.
+	_ "github.com/containerd/containerd/api/services/content"
 	_ "github.com/containerd/containerd/api/services/execution"
 	_ "github.com/containerd/containerd/api/services/images"
 	_ "github.com/containerd/containerd/api/services/rootfs"
