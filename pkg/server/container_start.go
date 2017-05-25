@@ -119,7 +119,7 @@ func (c *criContainerdService) startContainer(ctx context.Context, id string, me
 	if err != nil {
 		return fmt.Errorf("failed to get container image %q: %v", meta.ImageRef, err)
 	}
-	spec, err := c.generateContainerSpec(id, sandboxPid, config, sandboxConfig, imageMeta.Config)
+	spec, err := c.generateContainerSpec(id, sandboxMeta.NetNSPath(), sandboxPid, config, sandboxConfig, imageMeta.Config)
 	if err != nil {
 		return fmt.Errorf("failed to generate container %q spec: %v", id, err)
 	}
@@ -217,7 +217,7 @@ func (c *criContainerdService) startContainer(ctx context.Context, id string, me
 	return nil
 }
 
-func (c *criContainerdService) generateContainerSpec(id string, sandboxPid uint32, config *runtime.ContainerConfig,
+func (c *criContainerdService) generateContainerSpec(id, netNSPath string, sandboxPid uint32, config *runtime.ContainerConfig,
 	sandboxConfig *runtime.PodSandboxConfig, imageConfig *imagespec.ImageConfig) (*runtimespec.Spec, error) {
 	// Creates a spec Generator with the default spec.
 	// TODO(random-liu): [P2] Move container runtime spec generation into a helper function.
@@ -272,7 +272,7 @@ func (c *criContainerdService) generateContainerSpec(id string, sandboxPid uint3
 	// TODO(random-liu): [P0] Handle privileged.
 
 	// Set namespaces, share namespace with sandbox container.
-	setOCINamespaces(&g, securityContext.GetNamespaceOptions(), sandboxPid)
+	setOCINamespaces(&g, securityContext.GetNamespaceOptions(), netNSPath, sandboxPid)
 
 	// TODO(random-liu): [P1] Set selinux options.
 
@@ -363,9 +363,9 @@ func setOCICapabilities(g *generate.Generator, capabilities *runtime.Capability)
 }
 
 // setOCINamespaces sets namespaces.
-func setOCINamespaces(g *generate.Generator, namespaces *runtime.NamespaceOption, sandboxPid uint32) {
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.NetworkNamespace), getNetworkNamespace(sandboxPid)) // nolint: errcheck
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.IPCNamespace), getIPCNamespace(sandboxPid))         // nolint: errcheck
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.UTSNamespace), getUTSNamespace(sandboxPid))         // nolint: errcheck
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.PIDNamespace), getPIDNamespace(sandboxPid))         // nolint: errcheck
+func setOCINamespaces(g *generate.Generator, namespaces *runtime.NamespaceOption, netNSPath string, sandboxPid uint32) {
+	g.AddOrReplaceLinuxNamespace(string(runtimespec.NetworkNamespace), netNSPath)               // nolint: errcheck
+	g.AddOrReplaceLinuxNamespace(string(runtimespec.IPCNamespace), getIPCNamespace(sandboxPid)) // nolint: errcheck
+	g.AddOrReplaceLinuxNamespace(string(runtimespec.UTSNamespace), getUTSNamespace(sandboxPid)) // nolint: errcheck
+	g.AddOrReplaceLinuxNamespace(string(runtimespec.PIDNamespace), getPIDNamespace(sandboxPid)) // nolint: errcheck
 }

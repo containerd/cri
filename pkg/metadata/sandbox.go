@@ -18,6 +18,11 @@ package metadata
 
 import (
 	"encoding/json"
+	"fmt"
+	"sync"
+
+	"github.com/containernetworking/cni/pkg/ns"
+	"github.com/golang/glog"
 
 	"github.com/kubernetes-incubator/cri-containerd/pkg/metadata/store"
 
@@ -33,7 +38,10 @@ import (
 // metadata into unversioned metadata.
 
 // sandboxMetadataVersion is current version of sandbox metadata.
-const sandboxMetadataVersion = "v1" // nolint
+const (
+	sandboxMetadataVersion = "v1" // nolint
+	nsRunDir               = "/var/run/netns"
+)
 
 // versionedSandboxMetadata is the internal struct representing the versioned
 // sandbox metadata
@@ -55,7 +63,9 @@ type SandboxMetadata struct {
 	// CreatedAt is the created timestamp.
 	CreatedAt int64
 	// NetNS is the network namespace used by the sandbox.
-	NetNS string
+	NetNS *SandboxNetNS
+	// SandboxPID is the pid of sandbox container.
+	SandboxPID uint32
 }
 
 // SandboxUpdateFunc is the function used to update SandboxMetadata.
@@ -149,4 +159,52 @@ func (s *sandboxStore) List() ([]*SandboxMetadata, error) {
 // Delete deletes the sandbox from the store.
 func (s *sandboxStore) Delete(sandboxID string) error {
 	return s.store.Delete(sandboxID)
+}
+
+type SandboxNetNS struct {
+	sync.Mutex
+	NS     ns.NetNS
+	Closed bool
+}
+
+// NetNsPath returns the path to the network namespace of the container.
+func (s *SandboxMetadata) NetNSPath() string {
+	return s.NetNS.NS.Path()
+}
+
+// NetNsCreate creates netns and symlink it with a file.
+func (s *SandboxMetadata) NetNSCreate() error {
+	if s.NetNS != nil {
+		return fmt.Errorf("net NS already created")
+	}
+	netNS, err := ns.NewNS()
+	if err != nil {
+		return fmt.Errorf("failed to create new net NS: %v", err)
+	}
+	s.NetNS = &SandboxNetNS{
+		NS:     netNS,
+		Closed: false,
+	}
+	return nil
+}
+
+// NetNsRemove removes the netns store in sandbox meta data.
+func (s *SandboxMetadata) NetNSRemove() error {
+	if s.NetNS == nil {
+		glog.Error("no networking namespace to be removed.")
+		return nil
+	}
+	s.NetNS.Lock()
+	defer s.NetNS.Unlock()
+	if s.NetNS.Closed {
+		// netNsRemove() can be called multiple times without returning an error.
+		return nil
+	}
+	if err := s.NetNS.NS.Close(); err != nil {
+		return fmt.Errorf("failed to close net NS: %v", err)
+	}
+	// TODO: Handle restore logic with netNsGet.
+	// TODO: Get rid of the forcibly cleanup on restore after containernetworking/cni#342 is fixed.
+	s.NetNS.Closed = true
+	return nil
 }
