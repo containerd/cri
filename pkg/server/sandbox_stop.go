@@ -47,14 +47,20 @@ func (c *criContainerdService) StopPodSandbox(ctx context.Context, r *runtime.St
 	id := sandbox.ID
 
 	// Teardown network for sandbox.
-	_, err = c.os.Stat(sandbox.NetNS)
+	// TODO: Cleanup the namespace when cri-containerd crashes after we teardown the network,
+	// but before we remove the network namespace.
+	netNS := sandbox.NetNSPath()
+	_, err = c.os.Stat(netNS)
 	if err == nil {
-		if teardownErr := c.netPlugin.TearDownPod(sandbox.NetNS, sandbox.Config.GetMetadata().GetNamespace(),
+		if teardownErr := c.netPlugin.TearDownPod(netNS, sandbox.Config.GetMetadata().GetNamespace(),
 			sandbox.Config.GetMetadata().GetName(), id); teardownErr != nil {
 			return nil, fmt.Errorf("failed to destroy network for sandbox %q: %v", id, teardownErr)
 		}
 	} else if !os.IsNotExist(err) { // It's ok for sandbox.NetNS to *not* exist
 		return nil, fmt.Errorf("failed to stat netns path for sandbox %q before tearing down the network: %v", id, err)
+	}
+	if err = sandbox.NetNSRemove(); err != nil {
+		return nil, fmt.Errorf("failed to remove net ns for sandbox %q: %v", id, err)
 	}
 	glog.V(2).Infof("TearDown network for sandbox %q successfully", id)
 

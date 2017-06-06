@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	"github.com/opencontainers/image-spec/identity"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/net/context"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 
 	"github.com/containerd/containerd"
@@ -77,8 +79,6 @@ const (
 	stderrNamedPipe = "stderr"
 	// Delimiter used to construct container/sandbox names.
 	nameDelimiter = "_"
-	// netNSFormat is the format of network namespace of a process.
-	netNSFormat = "/proc/%v/ns/net"
 	// ipcNSFormat is the format of ipc namespace of a process.
 	ipcNSFormat = "/proc/%v/ns/ipc"
 	// utsNSFormat is the format of uts namespace of a process.
@@ -170,11 +170,6 @@ func (c *criContainerdService) prepareStreamingPipes(ctx context.Context, stdin,
 		pipes[t] = s
 	}
 	return pipes["stdin"], pipes["stdout"], pipes["stderr"], nil
-}
-
-// getNetworkNamespace returns the network namespace of a process.
-func getNetworkNamespace(pid uint32) string {
-	return fmt.Sprintf(netNSFormat, pid)
 }
 
 // getIPCNamespace returns the ipc namespace of a process.
@@ -384,4 +379,9 @@ func (c *criContainerdService) ensureImageExists(ctx context.Context, ref string
 		return nil, fmt.Errorf("failed to get image %q metadata after pulling: %v", imageID, err)
 	}
 	return meta, nil
+}
+
+// hostNetNsPath gets the host netns path.
+func hostNetNsPath() string {
+	return fmt.Sprintf("/proc/%d/task/%d/ns/net", os.Getpid(), unix.Gettid())
 }

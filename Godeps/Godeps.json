@@ -166,6 +166,11 @@
 			"Rev": "530dd71e193012895ff7beee42cd64a02e1993da"
 		},
 		{
+			"ImportPath": "github.com/containernetworking/cni/pkg/ns",
+			"Comment": "v0.4.0",
+			"Rev": "530dd71e193012895ff7beee42cd64a02e1993da"
+		},
+		{
 			"ImportPath": "github.com/containernetworking/cni/pkg/types",
 			"Comment": "v0.4.0",
 			"Rev": "530dd71e193012895ff7beee42cd64a02e1993da"

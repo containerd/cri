@@ -134,10 +134,31 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	}
 
 	// Start sandbox container.
-	spec, err := c.generateSandboxContainerSpec(id, config, imageMeta.Config)
+	hostNetwork := config.GetLinux().GetSecurityContext().GetNamespaceOptions().GetHostNetwork()
+	var netNSPath string
+	if hostNetwork {
+		netNSPath = hostNetNsPath()
+	} else {
+		// Create the sandbox network namespace.
+		// TODO: Cleanup the namespace when cri-containerd crashes after we create the namespace,
+		// but before we checkpoint the namespace path.
+		if err = meta.NetNSCreate(); err != nil {
+			return nil, fmt.Errorf("failed to create sandbox network namespace: %v", err)
+		}
+		defer func() {
+			if retErr != nil {
+				if netnsErr := meta.NetNSRemove(); netnsErr != nil {
+					glog.Errorf("Failed to remove networking namespace: %v", netnsErr)
+				}
+			}
+		}()
+		netNSPath = meta.NetNSPath()
+	}
+	spec, err := c.generateSandboxContainerSpec(id, config, imageMeta.Config, netNSPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate sandbox container spec: %v", err)
 	}
+
 	rawSpec, err := json.Marshal(spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal oci spec %+v: %v", spec, err)
@@ -174,18 +195,17 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 		}
 	}()
 
-	meta.NetNS = getNetworkNamespace(createResp.Pid)
-	if !config.GetLinux().GetSecurityContext().GetNamespaceOptions().GetHostNetwork() {
+	meta.SandboxPID = createResp.Pid
+	if !hostNetwork {
 		// Setup network for sandbox.
-		// TODO(random-liu): [P2] Replace with permanent network namespace.
 		podName := config.GetMetadata().GetName()
-		if err = c.netPlugin.SetUpPod(meta.NetNS, config.GetMetadata().GetNamespace(), podName, id); err != nil {
+		if err = c.netPlugin.SetUpPod(netNSPath, config.GetMetadata().GetNamespace(), podName, id); err != nil {
 			return nil, fmt.Errorf("failed to setup network for sandbox %q: %v", id, err)
 		}
 		defer func() {
 			if retErr != nil {
 				// Teardown network if an error is returned.
-				if err := c.netPlugin.TearDownPod(meta.NetNS, config.GetMetadata().GetNamespace(), podName, id); err != nil {
+				if err := c.netPlugin.TearDownPod(netNSPath, config.GetMetadata().GetNamespace(), podName, id); err != nil {
 					glog.Errorf("failed to destroy network for sandbox %q: %v", id, err)
 				}
 			}
@@ -204,12 +224,11 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 		return nil, fmt.Errorf("failed to add sandbox metadata %+v into store: %v",
 			meta, err)
 	}
-
 	return &runtime.RunPodSandboxResponse{PodSandboxId: id}, nil
 }
 
 func (c *criContainerdService) generateSandboxContainerSpec(id string, config *runtime.PodSandboxConfig,
-	imageConfig *imagespec.ImageConfig) (*runtimespec.Spec, error) {
+	imageConfig *imagespec.ImageConfig, netNSPath string) (*runtimespec.Spec, error) {
 	// Creates a spec Generator with the default spec.
 	// TODO(random-liu): [P1] Compare the default settings with docker and containerd default.
 	g := generate.New()
@@ -257,13 +276,12 @@ func (c *criContainerdService) generateSandboxContainerSpec(id string, config *r
 
 	// Set namespace options.
 	nsOptions := config.GetLinux().GetSecurityContext().GetNamespaceOptions()
-	// TODO(random-liu): [P1] Create permanent network namespace, so that we could still cleanup
-	// network namespace after sandbox container dies unexpectedly.
 	// By default, all namespaces are enabled for the container, runc will create a new namespace
 	// for it. By removing the namespace, the container will inherit the namespace of the runtime.
 	if nsOptions.GetHostNetwork() {
 		g.RemoveLinuxNamespace(string(runtimespec.NetworkNamespace)) // nolint: errcheck
-		// TODO(random-liu): [P1] Figure out how to handle UTS namespace.
+	} else {
+		g.AddOrReplaceLinuxNamespace(string(runtimespec.NetworkNamespace), netNSPath) // nolint: errcheck
 	}
 
 	if nsOptions.GetHostPid() {
