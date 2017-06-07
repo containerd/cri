@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/containerd/containerd/api/services/execution"
-	rootfsapi "github.com/containerd/containerd/api/services/rootfs"
+	snapshotapi "github.com/containerd/containerd/api/services/snapshot"
 	imagedigest "github.com/opencontainers/go-digest"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -270,7 +270,7 @@ options timeout:1
 func TestRunPodSandbox(t *testing.T) {
 	config, imageConfig, specCheck := getRunPodSandboxTestData()
 	c := newTestCRIContainerdService()
-	fakeRootfsClient := c.rootfsService.(*servertesting.FakeRootfsClient)
+	fakeSnapshotClient := c.snapshotService.(*servertesting.FakeSnapshotClient)
 	fakeExecutionClient := c.containerService.(*servertesting.FakeExecutionClient)
 	fakeCNIPlugin := c.netPlugin.(*servertesting.FakeCNIPlugin)
 	fakeOS := c.os.(*ostesting.FakeOS)
@@ -295,8 +295,8 @@ func TestRunPodSandbox(t *testing.T) {
 	// Insert sandbox image metadata.
 	assert.NoError(t, c.imageMetadataStore.Create(imageMetadata))
 	// Insert fake chainID
-	fakeRootfsClient.SetFakeChainIDs([]imagedigest.Digest{testChainID})
-	expectRootfsClientCalls := []string{"prepare"}
+	fakeSnapshotClient.SetFakeChainIDs([]imagedigest.Digest{testChainID})
+	expectSnapshotClientCalls := []string{"prepare"}
 	expectExecutionClientCalls := []string{"create", "start"}
 
 	res, err := c.RunPodSandbox(context.Background(), &runtime.RunPodSandboxRequest{Config: config})
@@ -312,10 +312,10 @@ func TestRunPodSandbox(t *testing.T) {
 	assert.Contains(t, pipes, stdout, "sandbox stdout pipe should be created")
 	assert.Contains(t, pipes, stderr, "sandbox stderr pipe should be created")
 
-	assert.Equal(t, expectRootfsClientCalls, fakeRootfsClient.GetCalledNames(), "expect rootfs functions should be called")
-	calls := fakeRootfsClient.GetCalledDetails()
-	prepareOpts := calls[0].Argument.(*rootfsapi.PrepareRequest)
-	assert.Equal(t, &rootfsapi.PrepareRequest{
+	assert.Equal(t, expectSnapshotClientCalls, fakeSnapshotClient.GetCalledNames(), "expect snapshot functions should be called")
+	calls := fakeSnapshotClient.GetCalledDetails()
+	prepareOpts := calls[0].Argument.(*snapshotapi.PrepareRequest)
+	assert.Equal(t, &snapshotapi.PrepareRequest{
 		Name:     id,
 		ChainID:  testChainID,
 		Readonly: true,
@@ -327,7 +327,7 @@ func TestRunPodSandbox(t *testing.T) {
 	assert.Equal(t, id, createOpts.ID, "create id should be correct")
 	assert.Equal(t, stdout, createOpts.Stdout, "stdout pipe should be passed to containerd")
 	assert.Equal(t, stderr, createOpts.Stderr, "stderr pipe should be passed to containerd")
-	mountsResp, err := fakeRootfsClient.Mounts(context.Background(), &rootfsapi.MountsRequest{Name: id})
+	mountsResp, err := fakeSnapshotClient.Mounts(context.Background(), &snapshotapi.MountsRequest{Name: id})
 	assert.NoError(t, err)
 	assert.Equal(t, mountsResp.Mounts, createOpts.Rootfs, "rootfs mount should be correct")
 	spec := &runtimespec.Spec{}

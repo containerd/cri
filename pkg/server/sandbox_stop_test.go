@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/api/types/container"
+	"github.com/containerd/containerd/api/types/task"
 
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1"
 

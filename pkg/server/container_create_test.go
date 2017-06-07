@@ -21,7 +21,7 @@ import (
 	"os"
 	"testing"
 
-	rootfsapi "github.com/containerd/containerd/api/services/rootfs"
+	snapshotapi "github.com/containerd/containerd/api/services/snapshot"
 	imagedigest "github.com/opencontainers/go-digest"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
@@ -135,7 +135,7 @@ func TestCreateContainer(t *testing.T) {
 	} {
 		t.Logf("TestCase %q", desc)
 		c := newTestCRIContainerdService()
-		fakeRootfsClient := c.rootfsService.(*servertesting.FakeRootfsClient)
+		fakeSnapshotClient := c.snapshotService.(*servertesting.FakeSnapshotClient)
 		fakeOS := c.os.(*ostesting.FakeOS)
 		if test.sandboxMetadata != nil {
 			assert.NoError(t, c.sandboxStore.Create(*test.sandboxMetadata))
@@ -148,9 +148,9 @@ func TestCreateContainer(t *testing.T) {
 			assert.NoError(t, c.imageMetadataStore.Create(testImageMetadata))
 		}
 		if test.prepareSnapshotErr != nil {
-			fakeRootfsClient.InjectError("prepare", test.prepareSnapshotErr)
+			fakeSnapshotClient.InjectError("prepare", test.prepareSnapshotErr)
 		}
-		fakeRootfsClient.SetFakeChainIDs([]imagedigest.Digest{testChainID})
+		fakeSnapshotClient.SetFakeChainIDs([]imagedigest.Digest{testChainID})
 		rootExists := false
 		rootPath := ""
 		fakeOS.MkdirAllFn = func(path string, perm os.FileMode) error {
@@ -197,10 +197,10 @@ func TestCreateContainer(t *testing.T) {
 		test.expectMeta.CreatedAt = meta.CreatedAt
 		assert.Equal(t, test.expectMeta, meta, "container metadata should be created")
 
-		assert.Equal(t, []string{"prepare"}, fakeRootfsClient.GetCalledNames(), "prepare should be called")
-		calls := fakeRootfsClient.GetCalledDetails()
-		prepareOpts := calls[0].Argument.(*rootfsapi.PrepareRequest)
-		assert.Equal(t, &rootfsapi.PrepareRequest{
+		assert.Equal(t, []string{"prepare"}, fakeSnapshotClient.GetCalledNames(), "prepare should be called")
+		calls := fakeSnapshotClient.GetCalledDetails()
+		prepareOpts := calls[0].Argument.(*snapshotapi.PrepareRequest)
+		assert.Equal(t, &snapshotapi.PrepareRequest{
 			Name:    id,
 			ChainID: testChainID,
 			// TODO(random-liu): Test readonly rootfs.

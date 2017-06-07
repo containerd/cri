@@ -34,8 +34,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/images"
+	"github.com/containerd/containerd/plugin"
 
 	"github.com/kubernetes-incubator/cri-containerd/pkg/metadata"
 
@@ -223,7 +222,7 @@ func getPIDNamespace(pid uint32) string {
 // ErrContainerNotExist error.
 // TODO(random-liu): Containerd should expose error better through api.
 func isContainerdContainerNotExistError(grpcError error) bool {
-	return grpc.ErrorDesc(grpcError) == containerd.ErrContainerNotExist.Error()
+	return grpc.ErrorDesc(grpcError) == plugin.ErrContainerNotExist.Error()
 }
 
 // getSandbox gets the sandbox metadata from the sandbox store. It returns nil without
@@ -347,9 +346,9 @@ func (c *criContainerdService) localResolve(ctx context.Context, ref string) (*m
 		}
 		image, err := c.imageStoreService.Get(ctx, normalized.String())
 		if err != nil {
-			if images.IsNotFound(err) {
-				return nil, nil
-			}
+			//if images.IsNotFound(err) { // TODO (mikebrow): IsNotFound removed
+			//	return nil, nil
+			//}
 			return nil, fmt.Errorf("an error occurred when getting image %q from containerd image store: %v",
 				normalized.String(), err)
 		}

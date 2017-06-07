@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 
-	"github.com/containerd/containerd/api/types/container"
+	"github.com/containerd/containerd/api/types/task"
 
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1"
 

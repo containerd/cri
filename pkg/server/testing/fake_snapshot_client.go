@@ -20,18 +20,19 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/containerd/containerd/api/services/rootfs"
+	"github.com/containerd/containerd/api/services/snapshot"
 	"github.com/containerd/containerd/api/types/descriptor"
 	"github.com/containerd/containerd/api/types/mount"
+	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/identity"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
-// FakeRootfsClient is a simple fake rootfs client, so that cri-containerd
+// FakeSnapshotClient is a simple fake snapshot client, so that cri-containerd
 // can be run for testing without requiring a real containerd setup.
-type FakeRootfsClient struct {
+type FakeSnapshotClient struct {
 	sync.Mutex
 	called      []CalledDetail
 	errors      map[string]error
@@ -39,18 +40,18 @@ type FakeRootfsClient struct {
 	MountList   map[string][]*mount.Mount
 }
 
-var _ rootfs.RootFSClient = &FakeRootfsClient{}
+var _ snapshot.SnapshotClient = &FakeSnapshotClient{}
 
-// NewFakeRootfsClient creates a FakeRootfsClient
-func NewFakeRootfsClient() *FakeRootfsClient {
-	return &FakeRootfsClient{
+// NewFakeSnapshotClient creates a FakeSnapshotClient
+func NewFakeSnapshotClient() *FakeSnapshotClient {
+	return &FakeSnapshotClient{
 		errors:      make(map[string]error),
 		ChainIDList: make(map[digest.Digest]struct{}),
 		MountList:   make(map[string][]*mount.Mount),
 	}
 }
 
-func (f *FakeRootfsClient) getError(op string) error {
+func (f *FakeSnapshotClient) getError(op string) error {
 	err, ok := f.errors[op]
 	if ok {
 		delete(f.errors, op)
@@ -60,14 +61,14 @@ func (f *FakeRootfsClient) getError(op string) error {
 }
 
 // InjectError inject error for call
-func (f *FakeRootfsClient) InjectError(fn string, err error) {
+func (f *FakeSnapshotClient) InjectError(fn string, err error) {
 	f.Lock()
 	defer f.Unlock()
 	f.errors[fn] = err
 }
 
 // InjectErrors inject errors for calls
-func (f *FakeRootfsClient) InjectErrors(errs map[string]error) {
+func (f *FakeSnapshotClient) InjectErrors(errs map[string]error) {
 	f.Lock()
 	defer f.Unlock()
 	for fn, err := range errs {
@@ -76,7 +77,7 @@ func (f *FakeRootfsClient) InjectErrors(errs map[string]error) {
 }
 
 // ClearErrors clear errors for call
-func (f *FakeRootfsClient) ClearErrors() {
+func (f *FakeSnapshotClient) ClearErrors() {
 	f.Lock()
 	defer f.Unlock()
 	f.errors = make(map[string]error)
@@ -84,7 +85,7 @@ func (f *FakeRootfsClient) ClearErrors() {
 
 //For uncompressed layers, diffID and digest will be the same. For compressed
 //layers, we can look up the diffID from the digest if we've already unpacked it.
-//In the FakeRootfsClient, We just use layer digest as diffID.
+//In the FakeSnapshotClient, We just use layer digest as diffID.
 func generateChainID(layers []*descriptor.Descriptor) digest.Digest {
 	var digests []digest.Digest
 	for _, layer := range layers {
@@ -94,13 +95,13 @@ func generateChainID(layers []*descriptor.Descriptor) digest.Digest {
 	return parent
 }
 
-func (f *FakeRootfsClient) appendCalled(name string, argument interface{}) {
+func (f *FakeSnapshotClient) appendCalled(name string, argument interface{}) {
 	call := CalledDetail{Name: name, Argument: argument}
 	f.called = append(f.called, call)
 }
 
 // GetCalledNames get names of call
-func (f *FakeRootfsClient) GetCalledNames() []string {
+func (f *FakeSnapshotClient) GetCalledNames() []string {
 	f.Lock()
 	defer f.Unlock()
 	names := []string{}
@@ -111,7 +112,7 @@ func (f *FakeRootfsClient) GetCalledNames() []string {
 }
 
 // GetCalledDetails get detail of each call.
-func (f *FakeRootfsClient) GetCalledDetails() []CalledDetail {
+func (f *FakeSnapshotClient) GetCalledDetails() []CalledDetail {
 	f.Lock()
 	defer f.Unlock()
 	// Copy the list and return.
@@ -119,7 +120,7 @@ func (f *FakeRootfsClient) GetCalledDetails() []CalledDetail {
 }
 
 // SetFakeChainIDs injects fake chainIDs.
-func (f *FakeRootfsClient) SetFakeChainIDs(chainIDs []digest.Digest) {
+func (f *FakeSnapshotClient) SetFakeChainIDs(chainIDs []digest.Digest) {
 	f.Lock()
 	defer f.Unlock()
 	for _, c := range chainIDs {
@@ -128,70 +129,71 @@ func (f *FakeRootfsClient) SetFakeChainIDs(chainIDs []digest.Digest) {
 }
 
 // SetFakeMounts injects fake mounts.
-func (f *FakeRootfsClient) SetFakeMounts(name string, mounts []*mount.Mount) {
+func (f *FakeSnapshotClient) SetFakeMounts(name string, mounts []*mount.Mount) {
 	f.Lock()
 	defer f.Unlock()
 	f.MountList[name] = mounts
 }
 
-// Unpack is a test implementation of rootfs.Unpack
-func (f *FakeRootfsClient) Unpack(ctx context.Context, unpackOpts *rootfs.UnpackRequest, opts ...grpc.CallOption) (*rootfs.UnpackResponse, error) {
-	f.Lock()
-	defer f.Unlock()
-	f.appendCalled("unpack", unpackOpts)
-	if err := f.getError("unpack"); err != nil {
-		return nil, err
-	}
-	chainID := generateChainID(unpackOpts.Layers)
-	_, ok := f.ChainIDList[chainID]
-	if ok {
-		return nil, fmt.Errorf("already unpacked")
-	}
-	f.ChainIDList[chainID] = struct{}{}
-	return &rootfs.UnpackResponse{
-		ChainID: chainID,
-	}, nil
-}
-
-// Prepare is a test implementation of rootfs.Prepare
-func (f *FakeRootfsClient) Prepare(ctx context.Context, prepareOpts *rootfs.PrepareRequest, opts ...grpc.CallOption) (*rootfs.MountResponse, error) {
+// Prepare is a test implementation of snapshot.Prepare
+func (f *FakeSnapshotClient) Prepare(ctx context.Context, prepareOpts *snapshot.PrepareRequest, opts ...grpc.CallOption) (*snapshot.MountsResponse, error) {
 	f.Lock()
 	defer f.Unlock()
 	f.appendCalled("prepare", prepareOpts)
 	if err := f.getError("prepare"); err != nil {
 		return nil, err
 	}
-	_, ok := f.ChainIDList[prepareOpts.ChainID]
-	if !ok {
-		return nil, fmt.Errorf("have not been unpacked")
-	}
-	_, ok = f.MountList[prepareOpts.Name]
+	_, ok := f.MountList[prepareOpts.Key]
 	if ok {
 		return nil, fmt.Errorf("mounts already exist")
 	}
-	f.MountList[prepareOpts.Name] = []*mount.Mount{{
+	f.MountList[prepareOpts.Key] = []*mount.Mount{{
 		Type:   "bind",
-		Source: prepareOpts.Name,
+		Source: prepareOpts.Key,
 		// TODO(random-liu): Fake options based on Readonly option.
 	}}
-	return &rootfs.MountResponse{
-		Mounts: f.MountList[prepareOpts.Name],
+	return &snapshot.MountsResponse{
+		Mounts: f.MountList[prepareOpts.Key],
 	}, nil
 }
 
-// Mounts is a test implementation of rootfs.Mounts
-func (f *FakeRootfsClient) Mounts(ctx context.Context, mountsOpts *rootfs.MountsRequest, opts ...grpc.CallOption) (*rootfs.MountResponse, error) {
+// Mounts is a test implementation of snapshot.Mounts
+func (f *FakeSnapshotClient) Mounts(ctx context.Context, mountsOpts *snapshot.MountsRequest, opts ...grpc.CallOption) (*snapshot.MountsResponse, error) {
 	f.Lock()
 	defer f.Unlock()
 	f.appendCalled("mounts", mountsOpts)
 	if err := f.getError("mounts"); err != nil {
 		return nil, err
 	}
-	mounts, ok := f.MountList[mountsOpts.Name]
+	mounts, ok := f.MountList[mountsOpts.Key]
 	if !ok {
 		return nil, fmt.Errorf("mounts not exist")
 	}
-	return &rootfs.MountResponse{
+	return &snapshot.MountsResponse{
 		Mounts: mounts,
 	}, nil
+}
+
+func (f *FakeSnapshotClient) Commit(ctx context.Context, in *snapshot.CommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	return nil, nil
+}
+
+func (f *FakeSnapshotClient) View(ctx context.Context, in *snapshot.PrepareRequest, opts ...grpc.CallOption) (*snapshot.MountsResponse, error) {
+	return nil, nil
+}
+
+func (f *FakeSnapshotClient) Remove(ctx context.Context, in *snapshot.RemoveRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	return nil, nil
+}
+
+func (f *FakeSnapshotClient) Stat(ctx context.Context, in *snapshot.StatRequest, opts ...grpc.CallOption) (*snapshot.StatResponse, error) {
+	return nil, nil
+}
+
+func (f *FakeSnapshotClient) List(ctx context.Context, in *snapshot.ListRequest, opts ...grpc.CallOption) (snapshot.Snapshot_ListClient, error) {
+	return nil, nil
+}
+
+func (f *FakeSnapshotClient) Usage(ctx context.Context, in *snapshot.UsageRequest, opts ...grpc.CallOption) (*snapshot.UsageResponse, error) {
+	return nil, nil
 }

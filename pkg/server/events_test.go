@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/api/services/execution"
-	"github.com/containerd/containerd/api/types/container"
+	"github.com/containerd/containerd/api/types/task"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1"

@@ -67,7 +67,7 @@ func newTestCRIContainerdService() *criContainerdService {
 		containerStore:     metadata.NewContainerStore(store.NewMetadataStore()),
 		containerNameIndex: registrar.NewRegistrar(),
 		containerService:   servertesting.NewFakeExecutionClient(),
-		rootfsService:      servertesting.NewFakeRootfsClient(),
+		snapshotService:    servertesting.NewFakeSnapshotClient(),
 		netPlugin:          servertesting.NewFakeCNIPlugin(),
 		agentFactory:       agentstesting.NewFakeAgentFactory(),
 	}
@@ -77,7 +77,7 @@ func newTestCRIContainerdService() *criContainerdService {
 func TestSandboxOperations(t *testing.T) {
 	c := newTestCRIContainerdService()
 	fake := c.containerService.(*servertesting.FakeExecutionClient)
-	fakeRootfsClient := c.rootfsService.(*servertesting.FakeRootfsClient)
+	fakeSnapshotClient := c.snapshotService.(*servertesting.FakeSnapshotClient)
 	fakeOS := c.os.(*ostesting.FakeOS)
 	fakeCNIPlugin := c.netPlugin.(*servertesting.FakeCNIPlugin)
 	fakeOS.OpenFifoFn = func(ctx context.Context, fn string, flag int, perm os.FileMode) (io.ReadWriteCloser, error) {
@@ -90,7 +90,7 @@ func TestSandboxOperations(t *testing.T) {
 		Config:  &imagespec.ImageConfig{Entrypoint: []string{"/pause"}},
 	}))
 	// Insert fake chainID
-	fakeRootfsClient.SetFakeChainIDs([]imagedigest.Digest{imagedigest.Digest("test-chain-id")})
+	fakeSnapshotClient.SetFakeChainIDs([]imagedigest.Digest{imagedigest.Digest("test-chain-id")})
 
 	config := &runtime.PodSandboxConfig{
 		Metadata: &runtime.PodSandboxMetadata{
