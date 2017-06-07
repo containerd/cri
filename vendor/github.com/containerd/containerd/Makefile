@@ -29,7 +29,7 @@ SNAPSHOT_PACKAGES=$(shell go list ./snapshot/...)
 
 # Project binaries.
 COMMANDS=ctr containerd protoc-gen-gogoctrd dist ctrd-protobuild
-ifeq ("$(GOOS)", "linux")
+ifneq ("$(GOOS)", "windows")
 	COMMANDS += containerd-shim
 endif
 BINARIES=$(addprefix bin/,$(COMMANDS))
@@ -37,8 +37,8 @@ ifeq ("$(GOOS)", "windows")
 	BINARY_SUFFIX=".exe"
 endif
 
-
-GO_LDFLAGS=-ldflags "-X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Revision=$(REVISION) -X $(PKG)/version.Package=$(PKG)"
+GO_TAGS=$(if $(BUILDTAGS),-tags "$(BUILDTAGS)",)
+GO_LDFLAGS=-ldflags "-X $(PKG)/version.Version=$(VERSION) -X $(PKG)/version.Revision=$(REVISION) -X $(PKG)/version.Package=$(PKG) $(EXTRA_LDFLAGS)"
 
 # Flags passed to `go test`
 TESTFLAGS ?=-parallel 8 -race
@@ -88,8 +88,6 @@ fmt: ## run go fmt
 		(echo "$(ONI) please format Go code with 'gofmt -s -w'" && false)
 	@test -z "$$(find . -path ./vendor -prune -o ! -name timestamp.proto ! -name duration.proto -name '*.proto' -type f -exec grep -Hn -e "^ " {} \; | tee /dev/stderr)" || \
 		(echo "$(ONI) please indent proto files with tabs only" && false)
-	@test -z "$$(find . -path ./vendor -prune -o -name '*.proto' -type f -exec grep -EHn "[_ ]id = " {} \; | grep -v gogoproto.customname | tee /dev/stderr)" || \
-		(echo "$(ONI) id fields in proto files must have a gogoproto.customname set" && false)
 	@test -z "$$(find . -path ./vendor -prune -o -name '*.proto' -type f -exec grep -Hn "Meta meta = " {} \; | grep -v '(gogoproto.nullable) = false' | tee /dev/stderr)" || \
 		(echo "$(ONI) meta fields in proto files must have option (gogoproto.nullable) = false" && false)
 
@@ -115,7 +113,7 @@ ineffassign: ## run ineffassign
 
 build: ## build the go packages
 	@echo "$(WHALE) $@"
-	@go build -i -v ${GO_LDFLAGS} ${GO_GCFLAGS} ${PACKAGES}
+	@go build -i -v ${EXTRA_FLAGS} ${GO_LDFLAGS} ${GO_GCFLAGS} ${PACKAGES}
 
 test: ## run tests, except integration tests and tests that require root
 	@echo "$(WHALE) $@"
@@ -127,16 +125,14 @@ root-test: ## run tests, except integration tests
 
 integration: ## run integration tests
 	@echo "$(WHALE) $@"
-	@go test ${TESTFLAGS} ${INTEGRATION_PACKAGE}
+	@go test ${TESTFLAGS}
 
 FORCE:
 
 # Build a binary from a cmd.
 bin/%: cmd/% FORCE
-	@test $$(go list) = "${PKG}" || \
-		(echo "$(ONI) Please correctly set up your Go build environment. This project must be located at <GOPATH>/src/${PKG}" && false)
 	@echo "$(WHALE) $@${BINARY_SUFFIX}"
-	@go build -i -o $@${BINARY_SUFFIX} ${GO_LDFLAGS}  ${GO_GCFLAGS} ./$<
+	@go build -i -o $@${BINARY_SUFFIX} ${GO_LDFLAGS} ${GO_TAGS} ${GO_GCFLAGS} ./$<
 
 binaries: $(BINARIES) ## build binaries
 	@echo "$(WHALE) $@"
