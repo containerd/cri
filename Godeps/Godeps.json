@@ -452,7 +452,7 @@
 		},
 		{
 			"ImportPath": "google.golang.org/genproto/googleapis/rpc/status",
-			"Rev": "aa2eb687b4d3e17154372564ad8d6bf11c3cf21f"
+			"Rev": "d80a6e20e776b0b17a324d0ba1ab50a39c8e8944"
 		},
 		{
 			"ImportPath": "google.golang.org/grpc",
