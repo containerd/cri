@@ -153,6 +153,9 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal oci spec %+v: %v", spec, err)
 	}
+
+	// TODO: Need to create container first.. see Create in containerd/containerd/apsi/services/containers
+
 	glog.V(4).Infof("Sandbox container spec: %+v", spec)
 	createOpts := &execution.CreateRequest{
 		ContainerID: id,

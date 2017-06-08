@@ -181,6 +181,8 @@ func (c *criContainerdService) startContainer(ctx context.Context, id string, me
 		return fmt.Errorf("failed to get rootfs mounts %q: %v", id, err)
 	}
 
+	// TODO: Need to create container first.. see Create in containerd/containerd/apsi/services/containers
+
 	// Create containerd container.
 	createOpts := &execution.CreateRequest{
 		ContainerID: id,
