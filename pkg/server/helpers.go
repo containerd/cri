@@ -34,6 +34,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	containerdmetadata "github.com/containerd/containerd/metadata"
 	"github.com/containerd/containerd/plugin"
 
 	"github.com/kubernetes-incubator/cri-containerd/pkg/metadata"
@@ -346,9 +347,9 @@ func (c *criContainerdService) localResolve(ctx context.Context, ref string) (*m
 		}
 		image, err := c.imageStoreService.Get(ctx, normalized.String())
 		if err != nil {
-			//if images.IsNotFound(err) { // TODO (mikebrow): IsNotFound removed
-			//	return nil, nil
-			//}
+			if containerdmetadata.IsNotFound(err) {
+				return nil, nil
+			}
 			return nil, fmt.Errorf("an error occurred when getting image %q from containerd image store: %v",
 				normalized.String(), err)
 		}
