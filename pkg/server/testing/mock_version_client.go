@@ -27,27 +27,30 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-// Mock of VersionClient interface
+// MockVersionClient of VersionClient interface
 type MockVersionClient struct {
 	ctrl     *gomock.Controller
-	recorder *_MockVersionClientRecorder
+	recorder *MockVersionClientRecorder
 }
 
-// Recorder for MockVersionClient (not exported)
-type _MockVersionClientRecorder struct {
+// MockVersionClientRecorder for MockVersionClient (not exported)
+type MockVersionClientRecorder struct {
 	mock *MockVersionClient
 }
 
+// NewMockVersionClient ...
 func NewMockVersionClient(ctrl *gomock.Controller) *MockVersionClient {
 	mock := &MockVersionClient{ctrl: ctrl}
-	mock.recorder = &_MockVersionClientRecorder{mock}
+	mock.recorder = &MockVersionClientRecorder{mock}
 	return mock
 }
 
-func (_m *MockVersionClient) EXPECT() *_MockVersionClientRecorder {
+// EXPECT ...
+func (_m *MockVersionClient) EXPECT() *MockVersionClientRecorder {
 	return _m.recorder
 }
 
+// Version ...
 func (_m *MockVersionClient) Version(_param0 context.Context, _param1 *empty.Empty, _param2 ...grpc.CallOption) (*version.VersionResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -59,7 +62,8 @@ func (_m *MockVersionClient) Version(_param0 context.Context, _param1 *empty.Emp
 	return ret0, ret1
 }
 
-func (_mr *_MockVersionClientRecorder) Version(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// Version ...
+func (_mr *MockVersionClientRecorder) Version(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Version", _s...)
 }

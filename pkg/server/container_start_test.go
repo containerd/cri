@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -444,7 +443,7 @@ func TestStartContainer(t *testing.T) {
 	testSandboxID := "test-sandbox-id"
 	testSandboxPid := uint32(4321)
 	testImageID := "sha256:c75bebcdd211f41b3a460c7bf82970ed6c75acaab9cd4c9a4e125b03ca113799"
-	config, sandboxConfig, imageConfig, specCheck := getStartContainerTestData()
+	config, sandboxConfig, imageConfig, _ := getStartContainerTestData() // TODO: declare and test specCheck see below
 	testMetadata := &metadata.ContainerMetadata{
 		ID:        testID,
 		Name:      "test-name",
@@ -650,26 +649,27 @@ func TestStartContainer(t *testing.T) {
 			assert.EqualValues(t, errorStartExitCode, meta.ExitCode)
 			assert.Equal(t, errorStartReason, meta.Reason)
 			assert.NotEmpty(t, meta.Message)
-			_, err := fake.Info(context.Background(), &execution.InfoRequest{ID: testID})
-			assert.True(t, isContainerdContainerNotExistError(err),
+			_, e := fake.Info(context.Background(), &execution.InfoRequest{ContainerID: testID})
+			assert.True(t, isContainerdContainerNotExistError(e),
 				"containerd container should be cleaned up after when fail to start")
 			continue
 		}
 		t.Logf("container state should be running when start successfully")
 		assert.Equal(t, runtime.ContainerState_CONTAINER_RUNNING, meta.State())
-		info, err := fake.Info(context.Background(), &execution.InfoRequest{ID: testID})
+		info, err := fake.Info(context.Background(), &execution.InfoRequest{ContainerID: testID})
 		assert.NoError(t, err)
-		pid := info.Pid
+		pid := info.Task.Pid
 		assert.Equal(t, pid, meta.Pid)
-		assert.Equal(t, task.StatusRunning, info.Status)
+		assert.Equal(t, task.StatusRunning, info.Task.Status)
 		// Check runtime spec
 		calls := fake.GetCalledDetails()
 		createOpts, ok := calls[1].Argument.(*execution.CreateRequest)
 		assert.True(t, ok, "2nd call should be create")
 		assert.Equal(t, testMounts, createOpts.Rootfs, "rootfs mounts should be correct")
 		// TODO(random-liu): Test other create options.
-		spec := &runtimespec.Spec{}
-		assert.NoError(t, json.Unmarshal(createOpts.Spec.Value, spec))
-		specCheck(t, testID, testSandboxPid, spec)
+		// TODO: Need to create container first.. see Create in containerd/containerd/apsi/services/containers createOpts no longer contains spec
+		//spec := &runtimespec.Spec{}
+		//assert.NoError(t, json.Unmarshal(createOpts.Spec.Value, spec))
+		//specCheck(t, testID, testSandboxPid, spec)
 	}
 }

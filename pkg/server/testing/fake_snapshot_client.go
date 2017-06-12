@@ -21,11 +21,9 @@ import (
 	"sync"
 
 	"github.com/containerd/containerd/api/services/snapshot"
-	"github.com/containerd/containerd/api/types/descriptor"
 	"github.com/containerd/containerd/api/types/mount"
 	google_protobuf1 "github.com/golang/protobuf/ptypes/empty"
 	"github.com/opencontainers/go-digest"
-	"github.com/opencontainers/image-spec/identity"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -86,6 +84,7 @@ func (f *FakeSnapshotClient) ClearErrors() {
 //For uncompressed layers, diffID and digest will be the same. For compressed
 //layers, we can look up the diffID from the digest if we've already unpacked it.
 //In the FakeSnapshotClient, We just use layer digest as diffID.
+/* TODO(mikebrow) no longer used see if still needed
 func generateChainID(layers []*descriptor.Descriptor) digest.Digest {
 	var digests []digest.Digest
 	for _, layer := range layers {
@@ -94,6 +93,7 @@ func generateChainID(layers []*descriptor.Descriptor) digest.Digest {
 	parent := identity.ChainID(digests)
 	return parent
 }
+*/
 
 func (f *FakeSnapshotClient) appendCalled(name string, argument interface{}) {
 	call := CalledDetail{Name: name, Argument: argument}
@@ -174,26 +174,32 @@ func (f *FakeSnapshotClient) Mounts(ctx context.Context, mountsOpts *snapshot.Mo
 	}, nil
 }
 
+// Commit is a test implementation of snapshot.Commit
 func (f *FakeSnapshotClient) Commit(ctx context.Context, in *snapshot.CommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	return nil, nil
 }
 
+// View is a test implementation of snapshot.View
 func (f *FakeSnapshotClient) View(ctx context.Context, in *snapshot.PrepareRequest, opts ...grpc.CallOption) (*snapshot.MountsResponse, error) {
 	return nil, nil
 }
 
+// Remove is a test implementation of snapshot.Remove
 func (f *FakeSnapshotClient) Remove(ctx context.Context, in *snapshot.RemoveRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	return nil, nil
 }
 
+// Stat is a test implementation of snapshot.Stat
 func (f *FakeSnapshotClient) Stat(ctx context.Context, in *snapshot.StatRequest, opts ...grpc.CallOption) (*snapshot.StatResponse, error) {
 	return nil, nil
 }
 
+// List is a test implementation of snapshot.List
 func (f *FakeSnapshotClient) List(ctx context.Context, in *snapshot.ListRequest, opts ...grpc.CallOption) (snapshot.Snapshot_ListClient, error) {
 	return nil, nil
 }
 
+// Usage is a test implementation of snapshot.Usage
 func (f *FakeSnapshotClient) Usage(ctx context.Context, in *snapshot.UsageRequest, opts ...grpc.CallOption) (*snapshot.UsageResponse, error) {
 	return nil, nil
 }

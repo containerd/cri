@@ -112,8 +112,8 @@ func TestSandboxOperations(t *testing.T) {
 	id := runRes.GetPodSandboxId()
 
 	t.Logf("should be able to get pod sandbox status")
-	info, err := fake.Info(context.Background(), &execution.InfoRequest{ID: id})
-	netns := getNetworkNamespace(info.Pid)
+	info, err := fake.Info(context.Background(), &execution.InfoRequest{ContainerID: id})
+	netns := getNetworkNamespace(info.Task.Pid)
 	assert.NoError(t, err)
 	expectSandboxStatus := &runtime.PodSandboxStatus{
 		Id:       id,
@@ -146,7 +146,7 @@ func TestSandboxOperations(t *testing.T) {
 	expectSandbox := &runtime.PodSandbox{
 		Id:          id,
 		Metadata:    config.GetMetadata(),
-		State:       runtime.PodSandboxState_SANDBOX_READY,
+		State:       runtime.PodSandboxState_SANDBOX_NOTREADY, // TODO(mikebrow) converting to client... should this be ready?
 		Labels:      config.GetLabels(),
 		Annotations: config.GetAnnotations(),
 	}

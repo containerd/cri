@@ -154,24 +154,24 @@ func TestListPodSandbox(t *testing.T) {
 			Config: &runtime.PodSandboxConfig{Metadata: &runtime.PodSandboxMetadata{Name: "name-3"}},
 		},
 	}
-	sandboxesInContainerd := []container.Container{
+	sandboxesInContainerd := []task.Task{
 		// Running container with corresponding metadata
 		{
 			ID:     "1",
 			Pid:    1,
-			Status: container.Status_RUNNING,
+			Status: task.StatusRunning,
 		},
 		// Stopped container with corresponding metadata
 		{
 			ID:     "2",
 			Pid:    2,
-			Status: container.Status_STOPPED,
+			Status: task.StatusStopped,
 		},
 		// Container without corresponding metadata
 		{
 			ID:     "4",
 			Pid:    4,
-			Status: container.Status_STOPPED,
+			Status: task.StatusStopped,
 		},
 	}
 	expect := []*runtime.PodSandbox{

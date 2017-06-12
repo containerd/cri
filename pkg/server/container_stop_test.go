@@ -98,14 +98,14 @@ func TestStopContainer(t *testing.T) {
 		CreatedAt: time.Now().UnixNano(),
 		StartedAt: time.Now().UnixNano(),
 	}
-	testContainer := container.Container{
+	testContainer := task.Task{
 		ID:     testID,
 		Pid:    testPid,
-		Status: container.Status_RUNNING,
+		Status: task.StatusRunning,
 	}
 	for desc, test := range map[string]struct {
 		metadata            *metadata.ContainerMetadata
-		containerdContainer *container.Container
+		containerdContainer *task.Task
 		killErr             error
 		deleteErr           error
 		discardEvents       int
@@ -183,7 +183,7 @@ func TestStopContainer(t *testing.T) {
 		}
 		// Inject containerd container.
 		if test.containerdContainer != nil {
-			fake.SetFakeContainers([]container.Container{*test.containerdContainer})
+			fake.SetFakeContainers([]task.Task{*test.containerdContainer})
 		}
 		if test.killErr != nil {
 			fake.InjectError("kill", test.killErr)
@@ -194,7 +194,7 @@ func TestStopContainer(t *testing.T) {
 		eventClient, err := fake.Events(context.Background(), &execution.EventsRequest{})
 		assert.NoError(t, err)
 		// Start a simple test event monitor.
-		go func(e execution.ContainerService_EventsClient, discard int) {
+		go func(e execution.Tasks_EventsClient, discard int) {
 			for {
 				e, err := e.Recv() // nolint: vetshadow
 				if err != nil {

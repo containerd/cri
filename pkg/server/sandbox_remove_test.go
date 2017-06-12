@@ -40,7 +40,7 @@ func TestRemovePodSandbox(t *testing.T) {
 		Name: testName,
 	}
 	for desc, test := range map[string]struct {
-		sandboxContainers   []container.Container
+		sandboxContainers   []task.Task
 		injectMetadata      bool
 		injectContainerdErr error
 		injectFSErr         error
@@ -55,7 +55,7 @@ func TestRemovePodSandbox(t *testing.T) {
 		},
 		"should return error when sandbox container is not deleted": {
 			injectMetadata:    true,
-			sandboxContainers: []container.Container{{ID: testID}},
+			sandboxContainers: []task.Task{{ID: testID}},
 			expectErr:         true,
 			expectCalls:       []string{"info"},
 		},

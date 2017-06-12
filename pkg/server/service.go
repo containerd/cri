@@ -19,6 +19,7 @@ package server
 import (
 	"fmt"
 
+	containerd "github.com/containerd/containerd"
 	contentapi "github.com/containerd/containerd/api/services/content"
 	"github.com/containerd/containerd/api/services/execution"
 	imagesapi "github.com/containerd/containerd/api/services/images"
@@ -32,7 +33,7 @@ import (
 	"github.com/kubernetes-incubator/cri-o/pkg/ocicni"
 	"google.golang.org/grpc"
 	healthapi "google.golang.org/grpc/health/grpc_health_v1"
-	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1"
+	kubeletruntime "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1"
 
 	"github.com/kubernetes-incubator/cri-containerd/pkg/metadata"
 	"github.com/kubernetes-incubator/cri-containerd/pkg/metadata/store"
@@ -44,8 +45,8 @@ import (
 // CRIContainerdService is the interface implement CRI remote service server.
 type CRIContainerdService interface {
 	Start()
-	runtime.RuntimeServiceServer
-	runtime.ImageServiceServer
+	kubeletruntime.RuntimeServiceServer
+	kubeletruntime.ImageServiceServer
 }
 
 // criContainerdService implements CRIContainerdService.
@@ -73,6 +74,8 @@ type criContainerdService struct {
 	// containerNameIndex stores all container names and make sure each
 	// name is unique.
 	containerNameIndex *registrar.Registrar
+	// client is an instance of the containerd client
+	client *containerd.Client
 	// containerService is containerd tasks client.
 	containerService execution.TasksClient
 	// contentStoreService is the containerd content service client.
@@ -93,7 +96,7 @@ type criContainerdService struct {
 }
 
 // NewCRIContainerdService returns a new instance of CRIContainerdService
-func NewCRIContainerdService(conn *grpc.ClientConn, rootDir, networkPluginBinDir, networkPluginConfDir string) (CRIContainerdService, error) {
+func NewCRIContainerdService(conn *grpc.ClientConn, containerdEndpoint, rootDir, networkPluginBinDir, networkPluginConfDir string) (CRIContainerdService, error) {
 	// TODO(random-liu): [P2] Recover from runtime state and metadata store.
 	c := &criContainerdService{
 		os:                 osinterface.RealOS{},
@@ -116,6 +119,12 @@ func NewCRIContainerdService(conn *grpc.ClientConn, rootDir, networkPluginBinDir
 		healthService:       healthapi.NewHealthClient(conn),
 		agentFactory:        agents.NewAgentFactory(),
 	}
+
+	client, err := containerd.New(containerdEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize client: %v", err)
+	}
+	c.client = client
 
 	netPlugin, err := ocicni.InitCNI(networkPluginBinDir, networkPluginConfDir)
 	if err != nil {

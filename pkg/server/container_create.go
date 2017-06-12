@@ -51,7 +51,7 @@ func (c *criContainerdService) CreateContainer(ctx context.Context, r *runtime.C
 	// the same container.
 	id := generateID()
 	name := makeContainerName(config.GetMetadata(), sandboxConfig.GetMetadata())
-	if err := c.containerNameIndex.Reserve(name, id); err != nil {
+	if err = c.containerNameIndex.Reserve(name, id); err != nil {
 		return nil, fmt.Errorf("failed to reserve container name %q: %v", name, err)
 	}
 	defer func() {

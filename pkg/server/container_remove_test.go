@@ -156,8 +156,8 @@ func TestRemoveContainer(t *testing.T) {
 			if !test.expectUnsetRemoving {
 				continue
 			}
-			meta, err := c.containerStore.Get(testID)
-			assert.NoError(t, err)
+			meta, e := c.containerStore.Get(testID)
+			assert.NoError(t, e)
 			require.NotNil(t, meta)
 			// Also covers resetContainerRemoving.
 			assert.False(t, meta.Removing, "removing state should be unset")

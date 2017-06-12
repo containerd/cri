@@ -101,14 +101,14 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	// Create sandbox container root directory.
 	// Prepare streaming named pipe.
 	sandboxRootDir := getSandboxRootDir(c.rootDir, id)
-	if err := c.os.MkdirAll(sandboxRootDir, 0755); err != nil {
+	if err = c.os.MkdirAll(sandboxRootDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create sandbox root directory %q: %v",
 			sandboxRootDir, err)
 	}
 	defer func() {
 		if retErr != nil {
 			// Cleanup the sandbox root directory.
-			if err := c.os.RemoveAll(sandboxRootDir); err != nil {
+			if err = c.os.RemoveAll(sandboxRootDir); err != nil {
 				glog.Errorf("Failed to remove sandbox root directory %q: %v",
 					sandboxRootDir, err)
 			}
@@ -127,10 +127,10 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 			stderrPipe.Close()
 		}
 	}()
-	if err := c.agentFactory.NewSandboxLogger(stdoutPipe).Start(); err != nil {
+	if err = c.agentFactory.NewSandboxLogger(stdoutPipe).Start(); err != nil {
 		return nil, fmt.Errorf("failed to start sandbox stdout logger: %v", err)
 	}
-	if err := c.agentFactory.NewSandboxLogger(stderrPipe).Start(); err != nil {
+	if err = c.agentFactory.NewSandboxLogger(stderrPipe).Start(); err != nil {
 		return nil, fmt.Errorf("failed to start sandbox stderr logger: %v", err)
 	}
 

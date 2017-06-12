@@ -179,8 +179,8 @@ func TestCreateContainer(t *testing.T) {
 				assert.NoError(t, c.containerNameIndex.Reserve(containerName, "random id"),
 					"container name should be released")
 			}
-			metas, err := c.containerStore.List()
-			assert.NoError(t, err)
+			metas, e := c.containerStore.List()
+			assert.NoError(t, e)
 			assert.Empty(t, metas, "container metadata should not be created")
 			continue
 		}
@@ -201,10 +201,8 @@ func TestCreateContainer(t *testing.T) {
 		calls := fakeSnapshotClient.GetCalledDetails()
 		prepareOpts := calls[0].Argument.(*snapshotapi.PrepareRequest)
 		assert.Equal(t, &snapshotapi.PrepareRequest{
-			Name:    id,
-			ChainID: testChainID,
-			// TODO(random-liu): Test readonly rootfs.
-			Readonly: false,
+			Key:    id,
+			Parent: testChainID.String(),
 		}, prepareOpts, "prepare request should be correct")
 	}
 }

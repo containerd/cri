@@ -372,11 +372,13 @@ func (f *FakeExecutionClient) Resume(ctx context.Context, in *execution.ResumeRe
 	return nil, nil
 }
 
+// Checkpoint is a test implementation of execution.Checkpoint
 func (f *FakeExecutionClient) Checkpoint(ctx context.Context, in *execution.CheckpointRequest, opts ...grpc.CallOption) (*execution.CheckpointResponse, error) {
 	// TODO: implement Checkpoint()
 	return nil, nil
 }
 
+// Processes is a test implementation of execution.Processes
 func (f *FakeExecutionClient) Processes(ctx context.Context, in *execution.ProcessesRequest, opts ...grpc.CallOption) (*execution.ProcessesResponse, error) {
 	// TODO: implement Processes()
 	return nil, nil

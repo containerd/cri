@@ -64,7 +64,7 @@ const (
 	relativeRootfsPath = "rootfs"
 	// defaultRuntime is the runtime to use in containerd. We may support
 	// other runtime in the future.
-	defaultRuntime = "linux"
+	// defaultRuntime = "linux" // TODO defaulRuntime is currently unused
 	// sandboxesDir contains all sandbox root. A sandbox root is the running
 	// directory of the sandbox, all files created for the sandbox will be
 	// placed under this directory.
@@ -341,21 +341,21 @@ func (c *criContainerdService) localResolve(ctx context.Context, ref string) (*m
 	_, err := imagedigest.Parse(ref)
 	if err != nil {
 		// ref is not image id, try to resolve it locally.
-		normalized, err := normalizeImageRef(ref)
-		if err != nil {
-			return nil, fmt.Errorf("invalid image reference %q: %v", ref, err)
+		normalized, e := normalizeImageRef(ref)
+		if e != nil {
+			return nil, fmt.Errorf("invalid image reference %q: %v", ref, e)
 		}
-		image, err := c.imageStoreService.Get(ctx, normalized.String())
-		if err != nil {
-			if containerdmetadata.IsNotFound(err) {
+		image, e := c.imageStoreService.Get(ctx, normalized.String())
+		if e != nil {
+			if containerdmetadata.IsNotFound(e) {
 				return nil, nil
 			}
 			return nil, fmt.Errorf("an error occurred when getting image %q from containerd image store: %v",
-				normalized.String(), err)
+				normalized.String(), e)
 		}
-		desc, err := image.Config(ctx, c.contentStoreService)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get image config descriptor: %v", err)
+		desc, e := image.Config(ctx, c.contentStoreService)
+		if e != nil {
+			return nil, fmt.Errorf("failed to get image config descriptor: %v", e)
 		}
 		ref = desc.Digest.String()
 	}
