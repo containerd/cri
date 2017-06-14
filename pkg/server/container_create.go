@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	rootfsapi "github.com/containerd/containerd/api/services/rootfs"
+	snapshotapi "github.com/containerd/containerd/api/services/snapshot"
 	"github.com/golang/glog"
 	imagedigest "github.com/opencontainers/go-digest"
 	"golang.org/x/net/context"
@@ -51,7 +51,7 @@ func (c *criContainerdService) CreateContainer(ctx context.Context, r *runtime.C
 	// the same container.
 	id := generateID()
 	name := makeContainerName(config.GetMetadata(), sandboxConfig.GetMetadata())
-	if err := c.containerNameIndex.Reserve(name, id); err != nil {
+	if err = c.containerNameIndex.Reserve(name, id); err != nil {
 		return nil, fmt.Errorf("failed to reserve container name %q: %v", name, err)
 	}
 	defer func() {
@@ -79,15 +79,15 @@ func (c *criContainerdService) CreateContainer(ctx context.Context, r *runtime.C
 	if imageMeta == nil {
 		return nil, fmt.Errorf("image %q not found", image)
 	}
-	if _, err := c.rootfsService.Prepare(ctx, &rootfsapi.PrepareRequest{
-		Name: id,
+	if _, err := c.snapshotService.Prepare(ctx, &snapshotapi.PrepareRequest{
+		Key: id,
 		// We are sure that ChainID must be a digest.
-		ChainID:  imagedigest.Digest(imageMeta.ChainID),
-		Readonly: config.GetLinux().GetSecurityContext().GetReadonlyRootfs(),
+		Parent: imagedigest.Digest(imageMeta.ChainID).String(),
+		//Readonly: config.GetLinux().GetSecurityContext().GetReadonlyRootfs(),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to prepare container rootfs %q: %v", imageMeta.ChainID, err)
 	}
-	// TODO(random-liu): [P0] Cleanup snapshot on failure after switching to new rootfs api.
+	// TODO(random-liu): [P0] Cleanup snapshot on failure after switching to new snapshot api.
 	meta.ImageRef = imageMeta.ID
 
 	// Create container root directory.

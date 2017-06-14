@@ -69,7 +69,7 @@ func (c *criContainerdService) StopContainer(ctx context.Context, r *runtime.Sto
 		// TODO(random-liu): [P1] Get stop signal from image config.
 		stopSignal := unix.SIGTERM
 		glog.V(2).Infof("Stop container %q with signal %v", id, stopSignal)
-		_, err = c.containerService.Kill(ctx, &execution.KillRequest{ID: id, Signal: uint32(stopSignal)})
+		_, err = c.containerService.Kill(ctx, &execution.KillRequest{ContainerID: id, Signal: uint32(stopSignal)})
 		if err != nil {
 			if isContainerdContainerNotExistError(err) {
 				return &runtime.StopContainerResponse{}, nil
@@ -87,7 +87,7 @@ func (c *criContainerdService) StopContainer(ctx context.Context, r *runtime.Sto
 	glog.V(2).Infof("Delete container from containerd %q", id)
 	// Delete sends SIGKILL to the container in the containerd version we are using.
 	// TODO(random-liu): Replace with `Kill` to avoid race soon.
-	_, err = c.containerService.Delete(ctx, &execution.DeleteRequest{ID: id})
+	_, err = c.containerService.Delete(ctx, &execution.DeleteRequest{ContainerID: id})
 	if err != nil {
 		if isContainerdContainerNotExistError(err) {
 			return &runtime.StopContainerResponse{}, nil

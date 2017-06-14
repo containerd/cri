@@ -19,10 +19,11 @@ package server
 import (
 	"fmt"
 
+	containerd "github.com/containerd/containerd"
 	contentapi "github.com/containerd/containerd/api/services/content"
 	"github.com/containerd/containerd/api/services/execution"
 	imagesapi "github.com/containerd/containerd/api/services/images"
-	rootfsapi "github.com/containerd/containerd/api/services/rootfs"
+	snapshotapi "github.com/containerd/containerd/api/services/snapshot"
 	versionapi "github.com/containerd/containerd/api/services/version"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/images"
@@ -32,7 +33,7 @@ import (
 	"github.com/kubernetes-incubator/cri-o/pkg/ocicni"
 	"google.golang.org/grpc"
 	healthapi "google.golang.org/grpc/health/grpc_health_v1"
-	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1"
+	kubeletruntime "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1"
 
 	"github.com/kubernetes-incubator/cri-containerd/pkg/metadata"
 	"github.com/kubernetes-incubator/cri-containerd/pkg/metadata/store"
@@ -44,8 +45,8 @@ import (
 // CRIContainerdService is the interface implement CRI remote service server.
 type CRIContainerdService interface {
 	Start()
-	runtime.RuntimeServiceServer
-	runtime.ImageServiceServer
+	kubeletruntime.RuntimeServiceServer
+	kubeletruntime.ImageServiceServer
 }
 
 // criContainerdService implements CRIContainerdService.
@@ -73,12 +74,14 @@ type criContainerdService struct {
 	// containerNameIndex stores all container names and make sure each
 	// name is unique.
 	containerNameIndex *registrar.Registrar
-	// containerService is containerd container service client.
-	containerService execution.ContainerServiceClient
+	// client is an instance of the containerd client
+	client *containerd.Client
+	// containerService is containerd tasks client.
+	containerService execution.TasksClient
 	// contentStoreService is the containerd content service client.
 	contentStoreService content.Store
-	// rootfsService is the containerd rootfs service client.
-	rootfsService rootfsapi.RootFSClient
+	// snapshotService is the containerd snapshot service client.
+	snapshotService snapshotapi.SnapshotClient
 	// imageStoreService is the containerd service to store and track
 	// image metadata.
 	imageStoreService images.Store
@@ -93,7 +96,7 @@ type criContainerdService struct {
 }
 
 // NewCRIContainerdService returns a new instance of CRIContainerdService
-func NewCRIContainerdService(conn *grpc.ClientConn, rootDir, networkPluginBinDir, networkPluginConfDir string) (CRIContainerdService, error) {
+func NewCRIContainerdService(conn *grpc.ClientConn, containerdEndpoint, rootDir, networkPluginBinDir, networkPluginConfDir string) (CRIContainerdService, error) {
 	// TODO(random-liu): [P2] Recover from runtime state and metadata store.
 	c := &criContainerdService{
 		os:                 osinterface.RealOS{},
@@ -108,14 +111,20 @@ func NewCRIContainerdService(conn *grpc.ClientConn, rootDir, networkPluginBinDir
 		sandboxIDIndex:   truncindex.NewTruncIndex(nil),
 		// TODO(random-liu): Add container id index.
 		containerNameIndex:  registrar.NewRegistrar(),
-		containerService:    execution.NewContainerServiceClient(conn),
+		containerService:    execution.NewTasksClient(conn),
 		imageStoreService:   imagesservice.NewStoreFromClient(imagesapi.NewImagesClient(conn)),
 		contentStoreService: contentservice.NewStoreFromClient(contentapi.NewContentClient(conn)),
-		rootfsService:       rootfsapi.NewRootFSClient(conn),
+		snapshotService:     snapshotapi.NewSnapshotClient(conn),
 		versionService:      versionapi.NewVersionClient(conn),
 		healthService:       healthapi.NewHealthClient(conn),
 		agentFactory:        agents.NewAgentFactory(),
 	}
+
+	client, err := containerd.New(containerdEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize client: %v", err)
+	}
+	c.client = client
 
 	netPlugin, err := ocicni.InitCNI(networkPluginBinDir, networkPluginConfDir)
 	if err != nil {

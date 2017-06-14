@@ -24,8 +24,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/api/services/execution"
-	rootfsapi "github.com/containerd/containerd/api/services/rootfs"
-	prototypes "github.com/gogo/protobuf/types"
+	snapshotapi "github.com/containerd/containerd/api/services/snapshot"
 	"github.com/golang/glog"
 	imagedigest "github.com/opencontainers/go-digest"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -87,29 +86,29 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sandbox image %q: %v", defaultSandboxImage, err)
 	}
-	prepareResp, err := c.rootfsService.Prepare(ctx, &rootfsapi.PrepareRequest{
-		Name: id,
+	prepareResp, err := c.snapshotService.Prepare(ctx, &snapshotapi.PrepareRequest{
+		Key: id,
 		// We are sure that ChainID must be a digest.
-		ChainID:  imagedigest.Digest(imageMeta.ChainID),
-		Readonly: true,
+		Parent: imagedigest.Digest(imageMeta.ChainID).String(),
+		//Readonly: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare sandbox rootfs %q: %v", imageMeta.ChainID, err)
 	}
-	// TODO(random-liu): [P0] Cleanup snapshot on failure after switching to new rootfs api.
+	// TODO(random-liu): [P0] Cleanup snapshot on failure after switching to new snapshot api.
 	rootfsMounts := prepareResp.Mounts
 
 	// Create sandbox container root directory.
 	// Prepare streaming named pipe.
 	sandboxRootDir := getSandboxRootDir(c.rootDir, id)
-	if err := c.os.MkdirAll(sandboxRootDir, 0755); err != nil {
+	if err = c.os.MkdirAll(sandboxRootDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create sandbox root directory %q: %v",
 			sandboxRootDir, err)
 	}
 	defer func() {
 		if retErr != nil {
 			// Cleanup the sandbox root directory.
-			if err := c.os.RemoveAll(sandboxRootDir); err != nil {
+			if err = c.os.RemoveAll(sandboxRootDir); err != nil {
 				glog.Errorf("Failed to remove sandbox root directory %q: %v",
 					sandboxRootDir, err)
 			}
@@ -128,10 +127,10 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 			stderrPipe.Close()
 		}
 	}()
-	if err := c.agentFactory.NewSandboxLogger(stdoutPipe).Start(); err != nil {
+	if err = c.agentFactory.NewSandboxLogger(stdoutPipe).Start(); err != nil {
 		return nil, fmt.Errorf("failed to start sandbox stdout logger: %v", err)
 	}
-	if err := c.agentFactory.NewSandboxLogger(stderrPipe).Start(); err != nil {
+	if err = c.agentFactory.NewSandboxLogger(stderrPipe).Start(); err != nil {
 		return nil, fmt.Errorf("failed to start sandbox stderr logger: %v", err)
 	}
 
@@ -150,19 +149,17 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate sandbox container spec: %v", err)
 	}
-	rawSpec, err := json.Marshal(spec)
+	_, err = json.Marshal(spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal oci spec %+v: %v", spec, err)
 	}
+
+	// TODO: Need to create container first.. see Create in containerd/containerd/apsi/services/containers
+
 	glog.V(4).Infof("Sandbox container spec: %+v", spec)
 	createOpts := &execution.CreateRequest{
-		ID: id,
-		Spec: &prototypes.Any{
-			TypeUrl: runtimespec.Version,
-			Value:   rawSpec,
-		},
-		Rootfs:  rootfsMounts,
-		Runtime: defaultRuntime,
+		ContainerID: id,
+		Rootfs:      rootfsMounts,
 		// No stdin for sandbox container.
 		Stdout: stdout,
 		Stderr: stderr,
@@ -179,7 +176,7 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	defer func() {
 		if retErr != nil {
 			// Cleanup the sandbox container if an error is returned.
-			if _, err = c.containerService.Delete(ctx, &execution.DeleteRequest{ID: id}); err != nil {
+			if _, err = c.containerService.Delete(ctx, &execution.DeleteRequest{ContainerID: id}); err != nil {
 				glog.Errorf("Failed to delete sandbox container %q: %v",
 					id, err)
 			}
@@ -205,7 +202,7 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	}
 
 	// Start sandbox container in containerd.
-	if _, err := c.containerService.Start(ctx, &execution.StartRequest{ID: id}); err != nil {
+	if _, err := c.containerService.Start(ctx, &execution.StartRequest{ContainerID: id}); err != nil {
 		return nil, fmt.Errorf("failed to start sandbox container %q: %v",
 			id, err)
 	}

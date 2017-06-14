@@ -26,27 +26,30 @@ import (
 	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-// Mock of HealthClient interface
+// MockHealthClient of HealthClient interface
 type MockHealthClient struct {
 	ctrl     *gomock.Controller
-	recorder *_MockHealthClientRecorder
+	recorder *MockHealthClientRecorder
 }
 
-// Recorder for MockHealthClient (not exported)
-type _MockHealthClientRecorder struct {
+// MockHealthClientRecorder for MockHealthClient (not exported)
+type MockHealthClientRecorder struct {
 	mock *MockHealthClient
 }
 
+// NewMockHealthClient ...
 func NewMockHealthClient(ctrl *gomock.Controller) *MockHealthClient {
 	mock := &MockHealthClient{ctrl: ctrl}
-	mock.recorder = &_MockHealthClientRecorder{mock}
+	mock.recorder = &MockHealthClientRecorder{mock}
 	return mock
 }
 
-func (_m *MockHealthClient) EXPECT() *_MockHealthClientRecorder {
+// EXPECT ...
+func (_m *MockHealthClient) EXPECT() *MockHealthClientRecorder {
 	return _m.recorder
 }
 
+// Check ...
 func (_m *MockHealthClient) Check(_param0 context.Context, _param1 *grpc_health_v1.HealthCheckRequest, _param2 ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
 	_s := []interface{}{_param0, _param1}
 	for _, _x := range _param2 {
@@ -58,7 +61,8 @@ func (_m *MockHealthClient) Check(_param0 context.Context, _param1 *grpc_health_
 	return ret0, ret1
 }
 
-func (_mr *_MockHealthClientRecorder) Check(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+// Check ...
+func (_mr *MockHealthClientRecorder) Check(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Check", _s...)
 }
