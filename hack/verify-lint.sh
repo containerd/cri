@@ -30,5 +30,5 @@ for d in $(find . -type d -a \( -iwholename './pkg*' -o -iwholename './cmd*' \))
 		 --cyclo-over=60 \
 		 --dupl-threshold=100 \
 		 --tests \
-		 --deadline=300s "${d}"
+		 --deadline=900s "${d}"
 done
