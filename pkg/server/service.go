@@ -20,9 +20,10 @@ import (
 	"fmt"
 
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/api/services/containers"
-	"github.com/containerd/containerd/api/services/execution"
-	versionapi "github.com/containerd/containerd/api/services/version"
+	"github.com/containerd/containerd/api/services/events/v1"
+	"github.com/containerd/containerd/api/services/tasks/v1"
+	versionapi "github.com/containerd/containerd/api/services/version/v1"
+	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/images"
 	diffservice "github.com/containerd/containerd/services/diff"
@@ -75,9 +76,9 @@ type criContainerdService struct {
 	// name is unique.
 	containerNameIndex *registrar.Registrar
 	// containerService is containerd tasks client.
-	containerService containers.ContainersClient
+	containerService containers.Store // was containers.ContainersClient
 	// taskService is containerd tasks client.
-	taskService execution.TasksClient
+	taskService tasks.TasksClient
 	// contentStoreService is the containerd content service client.
 	contentStoreService content.Store
 	// snapshotService is the containerd snapshot service client.
@@ -97,6 +98,8 @@ type criContainerdService struct {
 	agentFactory agents.AgentFactory
 	// client is an instance of the containerd client
 	client *containerd.Client
+	// eventsService is the containerd task service client
+	eventService events.EventsClient
 }
 
 // NewCRIContainerdService returns a new instance of CRIContainerdService
@@ -125,12 +128,13 @@ func NewCRIContainerdService(containerdEndpoint, rootDir, networkPluginBinDir, n
 		taskService:         client.TaskService(),
 		imageStoreService:   client.ImageService(),
 		contentStoreService: client.ContentStore(),
-		snapshotService:     client.SnapshotService(),
+		snapshotService:     client.SnapshotService("cri-containerd"), // TODO (mikebrow): want a better name for the snapshot service here
 		diffService:         client.DiffService(),
 		versionService:      client.VersionService(),
 		healthService:       client.HealthService(),
 		agentFactory:        agents.NewAgentFactory(),
 		client:              client,
+		eventService:        client.EventService(),
 	}
 
 	netPlugin, err := ocicni.InitCNI(networkPluginBinDir, networkPluginConfDir)

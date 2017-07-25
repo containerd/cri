@@ -20,12 +20,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 
-	containerdmetadata "github.com/containerd/containerd/metadata"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/truncindex"
@@ -362,7 +362,7 @@ func (c *criContainerdService) localResolve(ctx context.Context, ref string) (*m
 		}
 		image, err := c.imageStoreService.Get(ctx, normalized.String())
 		if err != nil {
-			if containerdmetadata.IsNotFound(err) {
+			if os.IsNotExist(err) {
 				return nil, nil
 			}
 			return nil, fmt.Errorf("an error occurred when getting image %q from containerd image store: %v",

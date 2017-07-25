@@ -23,7 +23,7 @@ import (
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 
-	"github.com/containerd/containerd/api/services/execution"
+	"github.com/containerd/containerd/api/services/tasks/v1"
 
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
 )
@@ -86,7 +86,7 @@ func (c *criContainerdService) StopPodSandbox(ctx context.Context, r *runtime.St
 
 	// TODO(random-liu): [P1] Handle sandbox container graceful deletion.
 	// Delete the sandbox container from containerd.
-	_, err = c.taskService.Delete(ctx, &execution.DeleteRequest{ContainerID: id})
+	_, err = c.taskService.Delete(ctx, &tasks.DeleteTaskRequest{ContainerID: id})
 	if err != nil && !isContainerdGRPCNotFoundError(err) {
 		return nil, fmt.Errorf("failed to delete sandbox container %q: %v", id, err)
 	}

@@ -23,8 +23,9 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/containerd/containerd/api/services/execution"
-	"github.com/containerd/containerd/api/types/task"
+	"github.com/containerd/containerd/api/services/events/v1"
+	"github.com/containerd/containerd/api/services/tasks/v1"
+	"github.com/containerd/containerd/typeurl"
 	prototypes "github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -83,19 +84,19 @@ func (c *criContainerdService) ExecSync(ctx context.Context, r *runtime.ExecSync
 	// TODO(random-liu): Handle this in event handler. Create an events client for
 	// each exec introduces unnecessary overhead.
 	cancellable, cancel := context.WithCancel(ctx)
-	events, err := c.taskService.Events(cancellable, &execution.EventsRequest{})
+	evnts, err := c.eventService.Stream(cancellable, &events.StreamEventsRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get containerd event: %v", err)
 	}
 
-	spec := &meta.Spec.Process
+	spec := meta.Spec.Process
 	spec.Args = r.GetCmd()
 	rawSpec, err := json.Marshal(spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal oci spec %+v: %v", spec, err)
 	}
 
-	resp, err := c.taskService.Exec(ctx, &execution.ExecRequest{
+	resp, err := c.taskService.Exec(ctx, &tasks.ExecProcessRequest{
 		ContainerID: id,
 		Terminal:    false,
 		Stdout:      stdout,
@@ -108,7 +109,7 @@ func (c *criContainerdService) ExecSync(ctx context.Context, r *runtime.ExecSync
 	if err != nil {
 		return nil, fmt.Errorf("failed to exec in container %q: %v", id, err)
 	}
-	exitCode, err := waitContainerExec(cancel, events, id, resp.Pid, r.GetTimeout())
+	exitCode, err := waitContainerExec(cancel, evnts, id, resp.Pid, r.GetTimeout())
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for exec in container %q to finish: %v", id, err)
 	}
@@ -122,7 +123,7 @@ func (c *criContainerdService) ExecSync(ctx context.Context, r *runtime.ExecSync
 }
 
 // waitContainerExec waits for container exec to finish and returns the exit code.
-func waitContainerExec(cancel context.CancelFunc, events execution.Tasks_EventsClient, id string,
+func waitContainerExec(cancel context.CancelFunc, evnts events.Events_StreamClient, id string,
 	pid uint32, timeout int64) (uint32, error) {
 	// TODO(random-liu): [P1] Support ExecSync timeout.
 	// TODO(random-liu): Delete process after containerd upgrade.
@@ -130,23 +131,28 @@ func waitContainerExec(cancel context.CancelFunc, events execution.Tasks_EventsC
 		// Stop events and drain the event channel. grpc-go#188
 		cancel()
 		for {
-			_, err := events.Recv()
+			_, err := evnts.Recv()
 			if err != nil {
 				break
 			}
 		}
 	}()
 	for {
-		e, err := events.Recv()
+		e, err := evnts.Recv()
 		if err != nil {
 			// Return non-zero exit code just in case.
 			return unknownExitCode, err
 		}
-		if e.Type != task.Event_EXIT {
+		any, err := typeurl.UnmarshalAny(e.Event)
+		if err != nil {
+			return unknownExitCode, err
+		}
+		te, ok := any.(*events.TaskExit)
+		if !ok { // continue until the event received is task exit
 			continue
 		}
-		if e.ID == id && e.Pid == pid {
-			return e.ExitStatus, nil
+		if te.ID == id && te.Pid == pid {
+			return te.ExitStatus, nil
 		}
 	}
 }

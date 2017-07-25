@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/containerd/containerd/api/services/containers"
-	"github.com/containerd/containerd/api/services/execution"
-	"github.com/containerd/containerd/api/types/mount"
+	"github.com/containerd/containerd/api/services/tasks/v1"
+	"github.com/containerd/containerd/api/types"
+	"github.com/containerd/containerd/containers"
 	prototypes "github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -99,9 +99,9 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 			}
 		}
 	}()
-	var rootfs []*mount.Mount
+	var rootfs []*types.Mount
 	for _, m := range rootfsMounts {
-		rootfs = append(rootfs, &mount.Mount{
+		rootfs = append(rootfs, &types.Mount{
 			Type:    m.Type,
 			Source:  m.Source,
 			Options: m.Options,
@@ -118,24 +118,22 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 		return nil, fmt.Errorf("failed to marshal oci spec %+v: %v", spec, err)
 	}
 	glog.V(4).Infof("Sandbox container spec: %+v", spec)
-	if _, err = c.containerService.Create(ctx, &containers.CreateContainerRequest{
-		Container: containers.Container{
-			ID: id,
-			// TODO(random-liu): Checkpoint metadata into container labels.
-			Image:   imageMeta.ID,
-			Runtime: defaultRuntime,
-			Spec: &prototypes.Any{
-				TypeUrl: runtimespec.Version,
-				Value:   rawSpec,
-			},
-			RootFS: id,
+	if _, err = c.containerService.Create(ctx, containers.Container{
+		ID: id,
+		// TODO(random-liu): Checkpoint metadata into container labels.
+		Image:   imageMeta.ID,
+		Runtime: containers.RuntimeInfo{Name: defaultRuntime},
+		Spec: &prototypes.Any{
+			TypeUrl: runtimespec.Version,
+			Value:   rawSpec,
 		},
+		RootFS: id,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to create containerd container: %v", err)
 	}
 	defer func() {
 		if retErr != nil {
-			if _, err := c.containerService.Delete(ctx, &containers.DeleteContainerRequest{ID: id}); err != nil {
+			if err := c.containerService.Delete(ctx, id); err != nil {
 				glog.Errorf("Failed to delete containerd container%q: %v", id, err)
 			}
 		}
@@ -190,7 +188,7 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 		}
 	}()
 
-	createOpts := &execution.CreateRequest{
+	createOpts := &tasks.CreateTaskRequest{
 		ContainerID: id,
 		Rootfs:      rootfs,
 		// No stdin for sandbox container.
@@ -208,7 +206,7 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	defer func() {
 		if retErr != nil {
 			// Cleanup the sandbox container if an error is returned.
-			if _, err = c.taskService.Delete(ctx, &execution.DeleteRequest{ContainerID: id}); err != nil {
+			if _, err = c.taskService.Delete(ctx, &tasks.DeleteTaskRequest{ContainerID: id}); err != nil {
 				glog.Errorf("Failed to delete sandbox container %q: %v",
 					id, err)
 			}
@@ -235,7 +233,7 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	}
 
 	// Start sandbox container in containerd.
-	if _, err := c.taskService.Start(ctx, &execution.StartRequest{ContainerID: id}); err != nil {
+	if _, err := c.taskService.Start(ctx, &tasks.StartTaskRequest{ContainerID: id}); err != nil {
 		return nil, fmt.Errorf("failed to start sandbox container %q: %v",
 			id, err)
 	}
@@ -327,7 +325,7 @@ func (c *criContainerdService) generateSandboxContainerSpec(id string, config *r
 	// TODO(random-liu): [P2] Set apparmor and seccomp from annotations.
 
 	g.SetLinuxResourcesCPUShares(uint64(defaultSandboxCPUshares))
-	g.SetLinuxResourcesOOMScoreAdj(int(defaultSandboxOOMAdj))
+	g.SetProcessOOMScoreAdj(int(defaultSandboxOOMAdj))
 
 	return g.Spec(), nil
 }

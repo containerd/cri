@@ -298,7 +298,10 @@ func (c *criContainerdService) pullImage(ctx context.Context, rawRef string, aut
 		if r == "" {
 			continue
 		}
-		if err := c.imageStoreService.Put(ctx, r, desc); err != nil {
+		image := containerdimages.Image{
+			Name: r,
+		}
+		if _, err := c.imageStoreService.Update(ctx, image); err != nil {
 			return "", "", "", fmt.Errorf("failed to put image reference %q desc %v into containerd image store: %v",
 				r, desc, err)
 		}
@@ -350,7 +353,10 @@ func (c *criContainerdService) pullImage(ctx context.Context, rawRef string, aut
 	// Use config digest as imageID to conform to oci image spec, and also add image id as
 	// image reference.
 	imageID := configDesc.Digest.String()
-	if err := c.imageStoreService.Put(ctx, imageID, desc); err != nil {
+	i := containerdimages.Image{
+		Name: imageID,
+	}
+	if _, err := c.imageStoreService.Update(ctx, i); err != nil {
 		return "", "", "", fmt.Errorf("failed to put image id %q into containerd image store: %v",
 			imageID, err)
 	}
@@ -369,7 +375,7 @@ func (c *criContainerdService) waitForResourcesDownloading(ctx context.Context, 
 		case <-ticker.C:
 			// TODO(random-liu): Use better regexp when containerd `MakeRefKey` contains more
 			// information.
-			statuses, err := c.contentStoreService.Status(ctx, "")
+			statuses, err := c.contentStoreService.ListStatuses(ctx, "")
 			if err != nil {
 				return fmt.Errorf("failed to get content status: %v", err)
 			}
