@@ -38,7 +38,7 @@ install:
   - unzip -o -d /tmp/protobuf /tmp/protoc-3.1.0-linux-x86_64.zip
   - export PATH=$PATH:/tmp/protobuf/bin/
   - go get -u github.com/vbatts/git-validation
-  - sudo wget https://github.com/crosbymichael/runc/releases/download/ctd-1/runc -O /bin/runc; sudo chmod +x /bin/runc
+  - sudo wget https://github.com/crosbymichael/runc/releases/download/ctd-4/runc -O /bin/runc; sudo chmod +x /bin/runc
   - wget https://github.com/xemul/criu/archive/v3.0.tar.gz -O /tmp/criu.tar.gz
   - tar -C /tmp/ -zxf /tmp/criu.tar.gz
   - cd /tmp/criu-3.0 && sudo make install-criu
@@ -49,6 +49,9 @@ script:
   - export CGO_ENABLED=$TRAVIS_CGO_ENABLED
   - GIT_CHECK_EXCLUDE="./vendor" TRAVIS_COMMIT_RANGE="${TRAVIS_COMMIT_RANGE/.../..}" make dco
   - make fmt
+# FIXME: For non-linux GOOS, without running `go build -i`, vet fails with `vet: import failed: can't find import: fmt`...
+# Note that `go build -i` requires write permission to GOROOT. (So it is not called in Makefile)
+  - go build -i .
   - make vet
   - make build
   - make binaries
