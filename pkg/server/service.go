@@ -18,13 +18,16 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/api/services/containers"
-	"github.com/containerd/containerd/api/services/execution"
-	versionapi "github.com/containerd/containerd/api/services/version"
+	"github.com/containerd/containerd/api/services/events/v1"
+	"github.com/containerd/containerd/api/services/tasks/v1"
+	versionapi "github.com/containerd/containerd/api/services/version/v1"
+	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/images"
+	"github.com/containerd/containerd/remotes/docker"
 	diffservice "github.com/containerd/containerd/services/diff"
 	"github.com/containerd/containerd/snapshot"
 	"github.com/docker/docker/pkg/truncindex"
@@ -75,9 +78,9 @@ type criContainerdService struct {
 	// name is unique.
 	containerNameIndex *registrar.Registrar
 	// containerService is containerd tasks client.
-	containerService containers.ContainersClient
+	containerService containers.Store // was containers.ContainersClient
 	// taskService is containerd tasks client.
-	taskService execution.TasksClient
+	taskService tasks.TasksClient
 	// contentStoreService is the containerd content service client.
 	contentStoreService content.Store
 	// snapshotService is the containerd snapshot service client.
@@ -97,6 +100,8 @@ type criContainerdService struct {
 	agentFactory agents.AgentFactory
 	// client is an instance of the containerd client
 	client *containerd.Client
+	// eventsService is the containerd task service client
+	eventService events.EventsClient
 }
 
 // NewCRIContainerdService returns a new instance of CRIContainerdService
@@ -107,6 +112,8 @@ func NewCRIContainerdService(containerdEndpoint, rootDir, networkPluginBinDir, n
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize containerd client with endpoint %q: %v", containerdEndpoint, err)
 	}
+
+	pullCtx := defaultRemoteContext()
 
 	c := &criContainerdService{
 		os:                 osinterface.RealOS{},
@@ -125,12 +132,13 @@ func NewCRIContainerdService(containerdEndpoint, rootDir, networkPluginBinDir, n
 		taskService:         client.TaskService(),
 		imageStoreService:   client.ImageService(),
 		contentStoreService: client.ContentStore(),
-		snapshotService:     client.SnapshotService(),
+		snapshotService:     client.SnapshotService(pullCtx.Snapshotter), // TODO (mikebrow): is this right?
 		diffService:         client.DiffService(),
 		versionService:      client.VersionService(),
 		healthService:       client.HealthService(),
 		agentFactory:        agents.NewAgentFactory(),
 		client:              client,
+		eventService:        client.EventService(),
 	}
 
 	netPlugin, err := ocicni.InitCNI(networkPluginBinDir, networkPluginConfDir)
@@ -144,4 +152,12 @@ func NewCRIContainerdService(containerdEndpoint, rootDir, networkPluginBinDir, n
 
 func (c *criContainerdService) Start() {
 	c.startEventMonitor()
+}
+
+func defaultRemoteContext() *containerd.RemoteContext {
+	return &containerd.RemoteContext{
+		Resolver: docker.NewResolver(docker.ResolverOptions{
+			Client: http.DefaultClient,
+		}),
+	}
 }
