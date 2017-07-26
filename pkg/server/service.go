@@ -18,6 +18,7 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/api/services/events/v1"
@@ -26,6 +27,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/images"
+	"github.com/containerd/containerd/remotes/docker"
 	diffservice "github.com/containerd/containerd/services/diff"
 	"github.com/containerd/containerd/snapshot"
 	"github.com/docker/docker/pkg/truncindex"
@@ -111,6 +113,8 @@ func NewCRIContainerdService(containerdEndpoint, rootDir, networkPluginBinDir, n
 		return nil, fmt.Errorf("failed to initialize containerd client with endpoint %q: %v", containerdEndpoint, err)
 	}
 
+	pullCtx := defaultRemoteContext()
+
 	c := &criContainerdService{
 		os:                 osinterface.RealOS{},
 		rootDir:            rootDir,
@@ -128,7 +132,7 @@ func NewCRIContainerdService(containerdEndpoint, rootDir, networkPluginBinDir, n
 		taskService:         client.TaskService(),
 		imageStoreService:   client.ImageService(),
 		contentStoreService: client.ContentStore(),
-		snapshotService:     client.SnapshotService("cri-containerd"), // TODO (mikebrow): want a better name for the snapshot service here
+		snapshotService:     client.SnapshotService(pullCtx.Snapshotter), // TODO (mikebrow): is this right?
 		diffService:         client.DiffService(),
 		versionService:      client.VersionService(),
 		healthService:       client.HealthService(),
@@ -148,4 +152,12 @@ func NewCRIContainerdService(containerdEndpoint, rootDir, networkPluginBinDir, n
 
 func (c *criContainerdService) Start() {
 	c.startEventMonitor()
+}
+
+func defaultRemoteContext() *containerd.RemoteContext {
+	return &containerd.RemoteContext{
+		Resolver: docker.NewResolver(docker.ResolverOptions{
+			Client: http.DefaultClient,
+		}),
+	}
 }

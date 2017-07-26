@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/errdefs"
 	containerdimages "github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
@@ -299,11 +300,20 @@ func (c *criContainerdService) pullImage(ctx context.Context, rawRef string, aut
 			continue
 		}
 		image := containerdimages.Image{
-			Name: r,
+			Name:   r,
+			Target: desc,
 		}
-		if _, err := c.imageStoreService.Update(ctx, image); err != nil {
-			return "", "", "", fmt.Errorf("failed to put image reference %q desc %v into containerd image store: %v",
-				r, desc, err)
+
+		if _, err := c.imageStoreService.Update(ctx, image, "target"); err != nil {
+			if !errdefs.IsNotFound(err) {
+				return "", "", "", fmt.Errorf("failed to update image reference %q desc %v in containerd image store: %v",
+					r, desc, err)
+			}
+			_, err := c.imageStoreService.Create(ctx, image)
+			if err != nil {
+				return "", "", "", fmt.Errorf("failed to create image reference %q desc %v in containerd image store: %v",
+					r, desc, err)
+			}
 		}
 	}
 	// Do not cleanup if following operations fail so as to make resumable download possible.
@@ -354,11 +364,19 @@ func (c *criContainerdService) pullImage(ctx context.Context, rawRef string, aut
 	// image reference.
 	imageID := configDesc.Digest.String()
 	i := containerdimages.Image{
-		Name: imageID,
+		Name:   imageID,
+		Target: desc,
 	}
-	if _, err := c.imageStoreService.Update(ctx, i); err != nil {
-		return "", "", "", fmt.Errorf("failed to put image id %q into containerd image store: %v",
-			imageID, err)
+	if _, err := c.imageStoreService.Update(ctx, i, "target"); err != nil {
+		if !errdefs.IsNotFound(err) {
+			return "", "", "", fmt.Errorf("failed to update image id %q in containerd image store: %v",
+				imageID, err)
+		}
+		_, err := c.imageStoreService.Create(ctx, i)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to create image id %q in containerd image store: %v",
+				imageID, err)
+		}
 	}
 	return imageID, repoTag, repoDigest, nil
 }

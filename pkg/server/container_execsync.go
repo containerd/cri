@@ -105,6 +105,7 @@ func (c *criContainerdService) ExecSync(ctx context.Context, r *runtime.ExecSync
 			TypeUrl: runtimespec.Version,
 			Value:   rawSpec,
 		},
+		ExecID: id + ".exec", // TODO (mikebrow/random-liu): need to design a proper exec id
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to exec in container %q: %v", id, err)

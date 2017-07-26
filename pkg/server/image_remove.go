@@ -18,8 +18,8 @@ package server
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/containerd/containerd/errdefs"
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
@@ -54,7 +54,7 @@ func (c *criContainerdService) RemoveImage(ctx context.Context, r *runtime.Remov
 		// TODO(random-liu): Containerd should schedule a garbage collection immediately,
 		// and we may want to wait for the garbage collection to be over here.
 		err = c.imageStoreService.Delete(ctx, ref)
-		if err == nil || os.IsNotExist(err) {
+		if err == nil || errdefs.IsNotFound(err) {
 			continue
 		}
 		return nil, fmt.Errorf("failed to delete image reference %q for image %q: %v", ref, meta.ID, err)

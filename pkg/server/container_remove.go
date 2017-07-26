@@ -18,8 +18,8 @@ package server
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/containerd/containerd/errdefs"
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
@@ -71,7 +71,7 @@ func (c *criContainerdService) RemoveContainer(ctx context.Context, r *runtime.R
 
 	// Remove container snapshot.
 	if err := c.snapshotService.Remove(ctx, id); err != nil {
-		if !os.IsNotExist(err) {
+		if !errdefs.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to remove container snapshot %q: %v", id, err)
 		}
 		glog.V(5).Infof("Remove called for snapshot %q that does not exist", id)
