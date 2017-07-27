@@ -19,8 +19,9 @@ package server
 import (
 	"time"
 
-	"github.com/containerd/containerd/api/services/execution"
-	"github.com/containerd/containerd/api/types/task"
+	"github.com/containerd/containerd/api/services/events/v1"
+	"github.com/containerd/containerd/api/services/tasks/v1"
+	"github.com/containerd/containerd/typeurl"
 	"github.com/golang/glog"
 	"github.com/jpillora/backoff"
 	"golang.org/x/net/context"
@@ -48,7 +49,7 @@ func (c *criContainerdService) startEventMonitor() {
 	}
 	go func() {
 		for {
-			events, err := c.taskService.Events(context.Background(), &execution.EventsRequest{})
+			evnts, err := c.eventService.Stream(context.Background(), &events.StreamEventsRequest{})
 			if err != nil {
 				glog.Errorf("Failed to connect to containerd event stream: %v", err)
 				time.Sleep(b.Duration())
@@ -59,7 +60,7 @@ func (c *criContainerdService) startEventMonitor() {
 			// TODO(random-liu): Relist to recover state, should prevent other operations
 			// until state is fully recovered.
 			for {
-				if err := c.handleEventStream(events); err != nil {
+				if err := c.handleEventStream(evnts); err != nil {
 					glog.Errorf("Failed to handle event stream: %v", err)
 					break
 				}
@@ -69,8 +70,8 @@ func (c *criContainerdService) startEventMonitor() {
 }
 
 // handleEventStream receives an event from containerd and handles the event.
-func (c *criContainerdService) handleEventStream(events execution.Tasks_EventsClient) error {
-	e, err := events.Recv()
+func (c *criContainerdService) handleEventStream(evnts events.Events_StreamClient) error {
+	e, err := evnts.Recv()
 	if err != nil {
 		return err
 	}
@@ -80,53 +81,56 @@ func (c *criContainerdService) handleEventStream(events execution.Tasks_EventsCl
 }
 
 // handleEvent handles a containerd event.
-func (c *criContainerdService) handleEvent(e *task.Event) {
-	switch e.Type {
-	// If containerd-shim exits unexpectedly, there will be no corresponding event.
-	// However, containerd could not retrieve container state in that case, so it's
-	// fine to leave out that case for now.
-	// TODO(random-liu): [P2] Handle containerd-shim exit.
-	case task.Event_EXIT:
-		meta, err := c.containerStore.Get(e.ID)
-		if err != nil {
-			glog.Errorf("Failed to get container %q metadata: %v", e.ID, err)
-			return
-		}
-		if e.Pid != meta.Pid {
-			// Non-init process died, ignore the event.
-			return
-		}
-		// Delete the container from containerd.
-		_, err = c.taskService.Delete(context.Background(), &execution.DeleteRequest{ContainerID: e.ID})
-		if err != nil && !isContainerdGRPCNotFoundError(err) {
-			// TODO(random-liu): [P0] Enqueue the event and retry.
-			glog.Errorf("Failed to delete container %q: %v", e.ID, err)
-			return
-		}
-		err = c.containerStore.Update(e.ID, func(meta metadata.ContainerMetadata) (metadata.ContainerMetadata, error) {
-			// If FinishedAt has been set (e.g. with start failure), keep as
-			// it is.
-			if meta.FinishedAt != 0 {
-				return meta, nil
+func (c *criContainerdService) handleEvent(e *events.Envelope) {
+	any, err := typeurl.UnmarshalAny(e.Event)
+	if err == nil {
+		switch v := any.(type) {
+		// If containerd-shim exits unexpectedly, there will be no corresponding event.
+		// However, containerd could not retrieve container state in that case, so it's
+		// fine to leave out that case for now.
+		// TODO(random-liu): [P2] Handle containerd-shim exit.
+		case events.TaskExit:
+			meta, err := c.containerStore.Get(v.ID)
+			if err != nil {
+				glog.Errorf("Failed to get container %q metadata: %v", v.ID, err)
+				return
 			}
-			meta.Pid = 0
-			meta.FinishedAt = e.ExitedAt.UnixNano()
-			meta.ExitCode = int32(e.ExitStatus)
-			return meta, nil
-		})
-		if err != nil {
-			glog.Errorf("Failed to update container %q state: %v", e.ID, err)
-			// TODO(random-liu): [P0] Enqueue the event and retry.
-			return
-		}
-	case task.Event_OOM:
-		err := c.containerStore.Update(e.ID, func(meta metadata.ContainerMetadata) (metadata.ContainerMetadata, error) {
-			meta.Reason = oomExitReason
-			return meta, nil
-		})
-		if err != nil && !metadata.IsNotExistError(err) {
-			glog.Errorf("Failed to update container %q oom: %v", e.ID, err)
-			return
+			if v.Pid != meta.Pid {
+				// Non-init process died, ignore the event.
+				return
+			}
+			// Delete the container from containerd.
+			_, err = c.taskService.Delete(context.Background(), &tasks.DeleteTaskRequest{ContainerID: v.ID})
+			if err != nil && !isContainerdGRPCNotFoundError(err) {
+				// TODO(random-liu): [P0] Enqueue the event and retry.
+				glog.Errorf("Failed to delete container %q: %v", v.ID, err)
+				return
+			}
+			err = c.containerStore.Update(v.ID, func(meta metadata.ContainerMetadata) (metadata.ContainerMetadata, error) {
+				// If FinishedAt has been set (e.g. with start failure), keep as
+				// it is.
+				if meta.FinishedAt != 0 {
+					return meta, nil
+				}
+				meta.Pid = 0
+				meta.FinishedAt = v.ExitedAt.UnixNano()
+				meta.ExitCode = int32(v.ExitStatus)
+				return meta, nil
+			})
+			if err != nil {
+				glog.Errorf("Failed to update container %q state: %v", v.ID, err)
+				// TODO(random-liu): [P0] Enqueue the event and retry.
+				return
+			}
+		case events.TaskOOM:
+			err := c.containerStore.Update(v.ContainerID, func(meta metadata.ContainerMetadata) (metadata.ContainerMetadata, error) {
+				meta.Reason = oomExitReason
+				return meta, nil
+			})
+			if err != nil && !metadata.IsNotExistError(err) {
+				glog.Errorf("Failed to update container %q oom: %v", v.ContainerID, err)
+				return
+			}
 		}
 	}
 }

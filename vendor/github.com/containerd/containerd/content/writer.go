@@ -3,8 +3,10 @@ package content
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
+	"github.com/containerd/containerd/errdefs"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
@@ -66,8 +68,12 @@ func (w *writer) Commit(size int64, expected digest.Digest) error {
 	// only allowing reads honoring the umask on creation.
 	//
 	// This removes write and exec, only allowing read per the creation umask.
-	if err := w.fp.Chmod((fi.Mode() & os.ModePerm) &^ 0333); err != nil {
-		return errors.Wrap(err, "failed to change ingest file permissions")
+	//
+	// NOTE: Windows does not support this operation
+	if runtime.GOOS != "windows" {
+		if err := w.fp.Chmod((fi.Mode() & os.ModePerm) &^ 0333); err != nil {
+			return errors.Wrap(err, "failed to change ingest file permissions")
+		}
 	}
 
 	if size > 0 && size != fi.Size() {
@@ -99,7 +105,7 @@ func (w *writer) Commit(size int64, expected digest.Digest) error {
 	if err := os.Rename(ingest, target); err != nil {
 		if os.IsExist(err) {
 			// collision with the target file!
-			return ErrExists
+			return errors.Wrapf(errdefs.ErrAlreadyExists, "content %v", dgst)
 		}
 		return err
 	}
