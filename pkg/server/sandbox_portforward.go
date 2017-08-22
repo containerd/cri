@@ -20,14 +20,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	"os/exec"
-	"strings"
-
 	"github.com/containerd/containerd"
 	"github.com/golang/glog"
+	"github.com/vishvananda/netns"
 	"golang.org/x/net/context"
+	"io"
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
+	"os/exec"
+	goruntime "runtime"
 )
 
 // PortForward prepares a streaming endpoint to forward ports from a PodSandbox, and returns the address.
@@ -60,9 +60,9 @@ func (c *criContainerdService) PortForward(ctx context.Context, r *runtime.PortF
 	return c.streamServer.GetPortForward(r)
 }
 
-// portForward requires `nsenter` and `socat` on the node, it uses `nsenter` to enter the
-// sandbox namespace, and run `socat` inside the namespace to forward stream for a specific
-// port. The `socat` command keeps running until it exits or client disconnect.
+// portForward requires `socat` on the node, it uses `socat` inside the
+// namespace to forward stream for a specific port. The `socat` command
+// keeps running until it exits or client disconnect.
 func (c *criContainerdService) portForward(id string, port int32, stream io.ReadWriteCloser) error {
 	s, err := c.sandboxStore.Get(id)
 	if err != nil {
@@ -77,18 +77,27 @@ func (c *criContainerdService) portForward(id string, port int32, stream io.Read
 
 	// Check following links for meaning of the options:
 	// * socat: https://linux.die.net/man/1/socat
-	// * nsenter: http://man7.org/linux/man-pages/man1/nsenter.1.html
-	args := []string{"-t", fmt.Sprintf("%d", pid), "-n", socat,
-		"-", fmt.Sprintf("TCP4:localhost:%d", port)}
+	args := []string{"-", fmt.Sprintf("TCP4:localhost:%d", port)}
 
-	nsenter, err := exec.LookPath("nsenter")
+	goruntime.LockOSThread()
+	defer goruntime.UnlockOSThread()
+
+	// Save the current namespace
+	origNS, err := netns.Get()
 	if err != nil {
-		return fmt.Errorf("failed to find nsenter: %v", err)
+		return fmt.Errorf("failed to fetch current network namespace %v", err)
 	}
+	defer origNS.Close()
+	// Get the namespace from the pid
+	pidNS, err := netns.GetFromPid(int(pid))
+	if err != nil {
+		return fmt.Errorf("failed to fetch pid network namespace %v", err)
+	}
+	// Set namespace of the pid
+	netns.Set(pidNS)
+	defer pidNS.Close()
 
-	glog.V(2).Infof("Executing port forwarding command: %s %s", nsenter, strings.Join(args, " "))
-
-	cmd := exec.Command(nsenter, args...)
+	cmd := exec.Command(socat, args...)
 	cmd.Stdout = stream
 
 	stderr := new(bytes.Buffer)
@@ -116,9 +125,10 @@ func (c *criContainerdService) portForward(id string, port int32, stream io.Read
 	}()
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("nsenter command returns error: %v, stderr: %q", err, stderr.String())
+		return fmt.Errorf("socat command returns error: %v, stderr: %q", err, stderr.String())
 	}
 
+	netns.Set(origNS)
 	glog.V(2).Infof("Finish port forwarding for %q port %d", id, port)
 
 	return nil
