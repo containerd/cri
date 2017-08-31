@@ -38,7 +38,7 @@ import (
 // ExecSync executes a command in the container, and returns the stdout output.
 // If command exits with a non-zero exit code, an error is returned.
 func (c *criContainerdService) ExecSync(ctx context.Context, r *runtime.ExecSyncRequest) (*runtime.ExecSyncResponse, error) {
-	output, _ := exec.Command("sudo", "iptables", "-L").CombinedOutput()
+	output, _ := exec.Command("sudo", "iptables", "-L", "-v").CombinedOutput()
 	glog.V(2).Infof("sudo iptables -L: %s", output)
 	output, _ = exec.Command("sudo", "ifconfig").CombinedOutput()
 	glog.V(2).Infof("sudo ifconfig: %s", output)
