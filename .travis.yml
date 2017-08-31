@@ -22,33 +22,15 @@ before_script:
 
 jobs:
   include:
-    - stage: Build
-      script:
-        - make install.tools
-        - make .gitvalidation
-        - make verify
-        - make binaries
-      go: 1.8.x
-    - script:
-        - make install.tools
-        - make .gitvalidation
-        - make verify
-        - make binaries
-      go: tip
-    - stage: Test
-      script:
-        - make install.deps
-        - make test
-        - make test-cri
-      after_script:
-        # Abuse travis to preserve the log.
-        - cat /tmp/test-cri/cri-containerd.log
-        - cat /tmp/test-cri/containerd.log
-      go: 1.8.x
     - stage: E2E Test
       script:
-        - test "${TRAVIS_EVENT_TYPE}" != "cron" && exit 0 || true
         - make install.deps
-        - make test-e2e-node
+        - make test-e2e-node FOCUS="should\sexecute\sprestop\sexec\shook\sproperly"
         # TODO(random-liu): Upload log to GCS.
+      after_script:
+        - cat /tmp/test-e2e-node/cri-containerd.log
+        - cat /tmp/test-e2e-node/containerd.log
+        - cat /tmp/test-e2e-node/kubelet.log
+        - cat /tmp/test-e2e-node/kern.log
+        - cat /tmp/test-e2e-node/services.log
       go: 1.8.x
