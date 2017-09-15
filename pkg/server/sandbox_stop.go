@@ -24,6 +24,7 @@ import (
 	"github.com/containerd/containerd/errdefs"
 	"github.com/cri-o/ocicni/pkg/ocicni"
 	"github.com/golang/glog"
+	store "github.com/kubernetes-incubator/cri-containerd/pkg/store"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
 )
@@ -33,6 +34,10 @@ import (
 func (c *criContainerdService) StopPodSandbox(ctx context.Context, r *runtime.StopPodSandboxRequest) (*runtime.StopPodSandboxResponse, error) {
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
 	if err != nil {
+		if err == store.ErrNotExist {
+			glog.Warningf("Could not get sandbox %s, it's probably been stopped already: %v", r.GetPodSandboxId(), err)
+			return &runtime.StopPodSandboxResponse{}, nil
+		}
 		return nil, fmt.Errorf("an error occurred when try to find sandbox %q: %v",
 			r.GetPodSandboxId(), err)
 	}
