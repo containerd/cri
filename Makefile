@@ -73,7 +73,7 @@ $(BUILD_DIR)/cri-containerd: $(SOURCES)
 	   $(PROJECT)/cmd/cri-containerd
 
 test:
-	go test -timeout=10m -race ./pkg/... $(BUILD_TAGS) $(GO_LDFLAGS) $(GO_GCFLAGS)
+	@./hack/test-unit.sh "${BUILD_TAGS}" "${GO_LDFLAGS}" "${GO_GCFLAGS}"
 
 test-cri: binaries
 	@./hack/test-cri.sh
