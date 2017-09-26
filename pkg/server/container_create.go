@@ -707,9 +707,17 @@ func setOCICapabilities(g *generate.Generator, capabilities *runtime.Capability)
 
 // setOCINamespaces sets namespaces.
 func setOCINamespaces(g *generate.Generator, namespaces *runtime.NamespaceOption, sandboxPid uint32) {
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.NetworkNamespace), getNetworkNamespace(sandboxPid)) // nolint: errcheck
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.IPCNamespace), getIPCNamespace(sandboxPid))         // nolint: errcheck
-	g.AddOrReplaceLinuxNamespace(string(runtimespec.UTSNamespace), getUTSNamespace(sandboxPid))         // nolint: errcheck
+	if namespaces.GetHostNetwork() {
+		g.RemoveLinuxNamespace(string(runtimespec.NetworkNamespace)) // nolint: errcheck
+	} else {
+		g.AddOrReplaceLinuxNamespace(string(runtimespec.NetworkNamespace), getNetworkNamespace(sandboxPid)) // nolint: errcheck
+	}
+	if namespaces.GetHostIpc() {
+		g.RemoveLinuxNamespace(string(runtimespec.IPCNamespace)) // nolint: errcheck
+	} else {
+		g.AddOrReplaceLinuxNamespace(string(runtimespec.IPCNamespace), getIPCNamespace(sandboxPid)) // nolint: errcheck
+	}
+	g.AddOrReplaceLinuxNamespace(string(runtimespec.UTSNamespace), getUTSNamespace(sandboxPid)) // nolint: errcheck
 	// Do not share pid namespace for now.
 	if namespaces.GetHostPid() {
 		g.RemoveLinuxNamespace(string(runtimespec.PIDNamespace)) // nolint: errcheck
