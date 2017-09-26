@@ -17,11 +17,12 @@ limitations under the License.
 package os
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	containerdmount "github.com/containerd/containerd/mount"
 	"github.com/containerd/fifo"
@@ -133,27 +134,9 @@ func (RealOS) LookupMount(path string) (containerdmount.Info, error) {
 // DeviceUUID gets device uuid of a device. The passed in device should be
 // an absolute path of the device.
 func (RealOS) DeviceUUID(device string) (string, error) {
-	const uuidDir = "/dev/disk/by-uuid"
-	if _, err := os.Stat(uuidDir); err != nil {
-		return "", err
-	}
-	files, err := ioutil.ReadDir(uuidDir)
+	output, err := exec.Command("/sbin/blkid", "-s", "UUID", "-o", "value", device).CombinedOutput()
 	if err != nil {
 		return "", err
 	}
-	for _, file := range files {
-		path := filepath.Join(uuidDir, file.Name())
-		target, err := os.Readlink(path)
-		if err != nil {
-			return "", err
-		}
-		dev, err := filepath.Abs(filepath.Join(uuidDir, target))
-		if err != nil {
-			return "", err
-		}
-		if dev == device {
-			return file.Name(), nil
-		}
-	}
-	return "", fmt.Errorf("device not found")
+	return strings.TrimSpace(string(output)), nil
 }
