@@ -143,6 +143,9 @@ func (RealOS) DeviceUUID(device string) (string, error) {
 	}
 	for _, file := range files {
 		path := filepath.Join(uuidDir, file.Name())
+		if path == device {
+			return file.Name(), nil
+		}
 		target, err := os.Readlink(path)
 		if err != nil {
 			return "", err
