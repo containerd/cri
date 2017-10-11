@@ -63,6 +63,13 @@ func (c *criContainerdService) toCRIContainerStats(
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode container metrics for %q: %v", cntr.ID, err)
 		}
+		// Skip terminated containers. This is not clearly defined in CRI today,
+		// but this is the assumption kubelet is making in summary api today.
+		// TODO(random-liu): Either clearly define this in CRI or update kubelet
+		// to handle stats for all containers (See kubernetes#53514).
+		if cs.Cpu == nil || cs.Memory == nil {
+			continue
+		}
 		containerStats.Stats = append(containerStats.Stats, cs)
 	}
 	return containerStats, nil
