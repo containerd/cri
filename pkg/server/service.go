@@ -19,8 +19,6 @@ package server
 import (
 	"fmt"
 	"net"
-	"net/http"
-	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -230,12 +228,6 @@ func (c *criContainerdService) Run() error {
 		close(grpcServerCloseCh)
 	}()
 
-	// Start profiling server if enable.
-	if c.config.EnableProfiling {
-		glog.V(2).Info("Start profiling server")
-		go startProfilingServer(c.config.ProfilingAddress, c.config.ProfilingPort)
-	}
-
 	// Stop the whole cri-containerd service if any of the critical service exits.
 	select {
 	case <-eventMonitorCloseCh:
@@ -275,22 +267,4 @@ func (c *criContainerdService) getDeviceUUID(path string) (string, error) {
 // Note that if containerd changes directory layout, we also needs to change this.
 func imageFSPath(rootDir, snapshotter string) string {
 	return filepath.Join(rootDir, fmt.Sprintf("%s.%s", plugin.SnapshotPlugin, snapshotter))
-}
-
-// startProfilingServer start http server to profiling via web interface
-func startProfilingServer(addr string, port string) {
-	if ip := net.ParseIP(addr); ip != nil {
-		endpoint := net.JoinHostPort(addr, port)
-		mux := http.NewServeMux()
-		mux.HandleFunc("/debug/pprof/", pprof.Index)
-		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		err := http.ListenAndServe(endpoint, mux)
-		if err != nil {
-			glog.Errorf("Failed to start server: %v", err)
-		}
-	} else {
-		glog.Warningf("Ignore Start Profiling Server for invalid IP Address:%q", addr)
-	}
 }
