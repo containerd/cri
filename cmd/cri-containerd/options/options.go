@@ -226,7 +226,7 @@ func defaultConfig() Config {
 		SystemdCgroup:       false,
 		OOMScore:            -999,
 		EnableProfiling:     true,
-		ProfilingPort:       "6060",
+		ProfilingPort:       "10011",
 		ProfilingAddress:    "127.0.0.1",
 	}
 }
