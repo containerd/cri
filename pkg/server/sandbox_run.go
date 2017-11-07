@@ -142,9 +142,7 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	if seccompSpecOpts != nil {
 		specOpts = append(specOpts, seccompSpecOpts)
 	}
-
-	sandboxLabels := buildLabels(config.Labels, containerKindSandbox)
-
+	sandboxLabels := buildLabels(config.Labels, containerTypeLabelSandbox)
 	opts := []containerd.NewContainerOpts{
 		containerd.WithSnapshotter(c.config.ContainerdConfig.Snapshotter),
 		customopts.WithImageUnpack(image.Image),

@@ -223,8 +223,7 @@ func (c *criContainerdService) CreateContainer(ctx context.Context, r *runtime.C
 	if seccompSpecOpts != nil {
 		specOpts = append(specOpts, seccompSpecOpts)
 	}
-	containerLabels := buildLabels(config.Labels, containerKindContainer)
-
+	containerLabels := buildLabels(config.Labels, containerTypeLabelContainer)
 	opts = append(opts,
 		containerd.WithSpec(spec, specOpts...),
 		containerd.WithRuntime(
