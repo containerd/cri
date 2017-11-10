@@ -95,12 +95,12 @@ const (
 const (
 	// criContainerdPrefix is common prefix for cri-containerd
 	criContainerdPrefix = "io.cri-containerd"
-	// containerKindLabel is a label key indicating container is sandbox container or application container
-	containerKindLabel = criContainerdPrefix + ".kind"
-	// containerKindSandbox is a label value indicating container is sandbox container
-	containerKindSandbox = "sandbox"
-	// containerKindContainer is a label value indicating container is application container
-	containerKindContainer = "container"
+	// containerTypeLabelKey is a label key indicating container is sandbox container or application container
+	containerTypeLabelKey = criContainerdPrefix + ".container.type"
+	// containerTypeLabelSandbox is a label value indicating container is sandbox container
+	containerTypeLabelSandbox = "sandbox"
+	// containerTypeLabelContainer is a label value indicating container is application container
+	containerTypeLabelContainer = "container"
 	// sandboxMetadataExtension is an extension name that identify metadata of sandbox in CreateContainerRequest
 	sandboxMetadataExtension = criContainerdPrefix + ".sandbox.metadata"
 	// containerMetadataExtension is an extension name that identify metadata of container in CreateContainerRequest
@@ -388,6 +388,6 @@ func buildLabels(configLabels map[string]string, containerType string) map[strin
 	for k, v := range configLabels {
 		labels[k] = v
 	}
-	labels[containerKindLabel] = containerType
+	labels[containerTypeLabelKey] = containerType
 	return labels
 }

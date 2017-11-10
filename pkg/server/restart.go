@@ -53,7 +53,7 @@ import (
 // recover recovers system state from containerd and status checkpoint.
 func (c *criContainerdService) recover(ctx context.Context) error {
 	// Recover all sandboxes.
-	sandboxes, err := c.client.Containers(ctx, filterLabel(containerKindLabel, containerKindSandbox))
+	sandboxes, err := c.client.Containers(ctx, filterLabel(containerTypeLabelKey, containerTypeLabelSandbox))
 	if err != nil {
 		return fmt.Errorf("failed to list sandbox containers: %v", err)
 	}
@@ -73,7 +73,7 @@ func (c *criContainerdService) recover(ctx context.Context) error {
 	}
 
 	// Recover all containers.
-	containers, err := c.client.Containers(ctx, filterLabel(containerKindLabel, containerKindContainer))
+	containers, err := c.client.Containers(ctx, filterLabel(containerTypeLabelKey, containerTypeLabelContainer))
 	if err != nil {
 		return fmt.Errorf("failed to list containers: %v", err)
 	}
