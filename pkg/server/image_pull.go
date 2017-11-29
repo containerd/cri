@@ -100,6 +100,7 @@ func (c *criContainerdService) PullImage(ctx context.Context, r *runtime.PullIma
 
 	// TODO(mikebrow): add truncIndex for image id
 	image, err := c.client.Pull(ctx, ref,
+		containerd.WithPullSnapshotter(c.config.ContainerdConfig.Snapshotter),
 		containerd.WithSchema1Conversion,
 		containerd.WithResolver(resolver),
 	)
