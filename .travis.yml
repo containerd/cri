@@ -30,7 +30,7 @@ install:
     - docker run --rm -v /usr/local/bin:/target jpetazzo/nsenter
     # Pull request test doesn't need google cloud sdk.
     - if [ "$TRAVIS_PULL_REQUEST" = "false" ] && [ ! -d ${HOME}/google-cloud-sdk ]; then
-        rm -rf "${HOME}/google-cloud-sdk"; 
+        rm -rf "${HOME}/google-cloud-sdk";
         export CLOUDSDK_CORE_DISABLE_PROMPTS=1;
         curl https://sdk.cloud.google.com | bash;
         gcloud version;
@@ -55,6 +55,12 @@ jobs:
         - make .gitvalidation
         - make binaries
       go: tip
+    - script:
+        - make install.tools
+        - make .gitvalidation
+        - make binaries
+        - make verify
+      go: 1.8.x
     - stage: Test
       script:
         - make install.deps
