@@ -48,13 +48,25 @@ func (c *criContainerdService) checkSnapshot(ctx context.Context, snapshot, entr
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(root) // nolint: errcheck
+	removeTemp := true
+	defer func() {
+		if removeTemp {
+			os.RemoveAll(root) // nolint: errcheck
+		}
+	}()
+	glog.V(0).Infof("Check snapshot, get mounts %#v", mounts)
 	for _, m := range mounts {
 		if err := m.Mount(root); err != nil {
 			return err
 		}
 	}
-	defer unix.Unmount(root, 0) // nolint: errcheck
+	defer func() {
+		err := unix.Unmount(root, 0) // nolint: errcheck
+		if err != nil {
+			removeTemp = false
+			glog.V(0).Infof("Check snapshot, Unmount fail %v", err)
+		}
+	}()
 	fs, err := ioutil.ReadDir(root)
 	if err != nil {
 		return err
