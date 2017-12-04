@@ -58,7 +58,7 @@ CRICTL_CONFIG_DIR=${DESTDIR}/etc
 
 RUNC_PKG=github.com/opencontainers/runc
 CNI_PKG=github.com/containernetworking/plugins
-CONTAINERD_PKG=github.com/containerd/containerd
+CONTAINERD_PKG=github.com/crosbymichael/containerd
 CRITOOL_PKG=github.com/kubernetes-incubator/cri-tools
 # Check GOPATH
 if [[ -z "${GOPATH}" ]]; then
