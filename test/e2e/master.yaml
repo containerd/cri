@@ -35,7 +35,6 @@ write_files:
         shim = "/home/cri-containerd/usr/local/bin/containerd-shim"
         runtime = "/home/cri-containerd/usr/local/sbin/runc"
 
-  # TODO(random-liu): Add health monitor for containerd/cri-containerd.
   - path: /etc/systemd/system/containerd.service
     permissions: 0644
     owner: root
@@ -159,6 +158,40 @@ write_files:
       [Install]
       WantedBy=kubernetes.target
 
+  - path: /etc/systemd/system/cri-containerd-monitor.service
+    permissions: 0644
+    owner: root
+    content: |
+      [Unit]
+      Description=Kubernetes health monitoring for cri-containerd
+      After=kube-node-configuration.service
+      [Service]
+      Restart=always
+      RestartSec=10
+      RemainAfterExit=yes
+      RemainAfterExit=yes
+      ExecStartPre=/bin/chmod 544 /home/cri-containerd/health-monitor.sh
+      ExecStart=/home/cri-containerd/health-monitor.sh cri-containerd
+      [Install]
+      WantedBy=kubernetes.target
+
+  - path: /etc/systemd/system/containerd-monitor.service
+    permissions: 0644
+    owner: root
+    content: |
+      [Unit]
+      Description=Kubernetes health monitoring for containerd container runtime
+      After=kube-node-configuration.service
+      [Service]
+      Restart=always
+      RestartSec=10
+      RemainAfterExit=yes
+      RemainAfterExit=yes
+      ExecStartPre=/bin/chmod 544 /home/cri-containerd/health-monitor.sh
+      ExecStart=/home/cri-containerd/health-monitor.sh containerd
+      [Install]
+      WantedBy=kubernetes.target
+
   - path: /etc/systemd/system/kube-logrotate.timer
     permissions: 0644
     owner: root
@@ -206,6 +239,8 @@ runcmd:
   - systemctl enable kube-master-installation.service
   - systemctl enable kube-master-configuration.service
   - systemctl enable kubelet-monitor.service
+  - systemctl enable cri-containerd-monitor.service
+  - systemctl enable containerd-monitor.service
   - systemctl enable kube-logrotate.timer
   - systemctl enable kube-logrotate.service
   - systemctl enable kubernetes.target
