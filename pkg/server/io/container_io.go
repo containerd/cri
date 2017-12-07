@@ -17,6 +17,7 @@ limitations under the License.
 package io
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -39,12 +40,12 @@ type ContainerIO struct {
 	id string
 
 	fifos *cio.FIFOSet
-	*stdioPipes
+	cio.DirectIO
 
 	stdoutGroup *cioutil.WriterGroup
 	stderrGroup *cioutil.WriterGroup
 
-	closer *wgCloser
+	wg *sync.WaitGroup
 }
 
 var _ cio.IO = &ContainerIO{}
@@ -103,45 +104,38 @@ func NewContainerIO(id string, opts ...ContainerIOOpts) (_ *ContainerIO, err err
 	if c.fifos == nil {
 		return nil, errors.New("fifos are not set")
 	}
-	// Create actual fifos.
-	stdio, closer, err := newStdioPipes(c.fifos)
+	dio, err := cio.NewDirectIO(context.Background(), c.fifos)
 	if err != nil {
 		return nil, err
 	}
-	c.stdioPipes = stdio
-	c.closer = closer
+	c.DirectIO = *dio
 	return c, nil
-}
-
-// Config returns io config.
-func (c *ContainerIO) Config() cio.Config {
-	return c.fifos.Config
 }
 
 // Pipe creates container fifos and pipe container output
 // to output stream.
 func (c *ContainerIO) Pipe() {
-	wg := c.closer.wg
-	wg.Add(1)
+	c.wg = &sync.WaitGroup{}
+	c.wg.Add(1)
 	go func() {
-		if _, err := io.Copy(c.stdoutGroup, c.stdout); err != nil {
+		if _, err := io.Copy(c.stdoutGroup, c.Stdout); err != nil {
 			logrus.WithError(err).Errorf("Failed to pipe stdout of container %q", c.id)
 		}
-		c.stdout.Close()
+		c.Stdout.Close()
 		c.stdoutGroup.Close()
-		wg.Done()
+		c.wg.Done()
 		logrus.Infof("Finish piping stdout of container %q", c.id)
 	}()
 
 	if !c.fifos.Terminal {
-		wg.Add(1)
+		c.wg.Add(1)
 		go func() {
-			if _, err := io.Copy(c.stderrGroup, c.stderr); err != nil {
+			if _, err := io.Copy(c.stderrGroup, c.Stderr); err != nil {
 				logrus.WithError(err).Errorf("Failed to pipe stderr of container %q", c.id)
 			}
-			c.stderr.Close()
+			c.Stderr.Close()
 			c.stderrGroup.Close()
-			wg.Done()
+			c.wg.Done()
 			logrus.Infof("Finish piping stderr of container %q", c.id)
 		}()
 	}
@@ -157,14 +151,14 @@ func (c *ContainerIO) Attach(opts AttachOptions) error {
 	stderrKey := streamKey(c.id, "attach-"+key, Stderr)
 
 	var stdinStreamRC io.ReadCloser
-	if c.stdin != nil && opts.Stdin != nil {
+	if c.Stdin != nil && opts.Stdin != nil {
 		// Create a wrapper of stdin which could be closed. Note that the
 		// wrapper doesn't close the actual stdin, it only stops io.Copy.
 		// The actual stdin will be closed by stream server.
 		stdinStreamRC = cioutil.NewWrapReadCloser(opts.Stdin)
 		wg.Add(1)
 		go func() {
-			if _, err := io.Copy(c.stdin, stdinStreamRC); err != nil {
+			if _, err := io.Copy(c.Stdin, stdinStreamRC); err != nil {
 				logrus.WithError(err).Errorf("Failed to pipe stdin for container attach %q", c.id)
 			}
 			logrus.Infof("Attach stream %q closed", stdinKey)
@@ -172,7 +166,7 @@ func (c *ContainerIO) Attach(opts AttachOptions) error {
 				// Due to kubectl requirements and current docker behavior, when (opts.StdinOnce &&
 				// opts.Tty) we have to close container stdin and keep stdout and stderr open until
 				// container stops.
-				c.stdin.Close()
+				c.Stdin.Close()
 				// Also closes the containerd side.
 				if err := opts.CloseStdin(); err != nil {
 					logrus.WithError(err).Errorf("Failed to close stdin for container %q", c.id)
@@ -219,21 +213,9 @@ func (c *ContainerIO) Attach(opts AttachOptions) error {
 	return nil
 }
 
-// Cancel cancels container io.
-func (c *ContainerIO) Cancel() {
-	c.closer.Cancel()
-}
-
-// Wait waits container io to finish.
+// Wait for IO streams to end
 func (c *ContainerIO) Wait() {
-	c.closer.Wait()
-}
-
-// Close closes all FIFOs.
-func (c *ContainerIO) Close() error {
-	c.closer.Close()
-	if c.fifos != nil {
-		return c.fifos.Close()
+	if c.wg != nil {
+		c.wg.Wait()
 	}
-	return nil
 }

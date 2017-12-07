@@ -115,15 +115,16 @@ func (c *criContainerdService) execInContainer(ctx context.Context, id string, o
 	}
 	execID := util.GenerateID()
 	logrus.Debugf("Generated exec id %q for container %q", execID, id)
-	rootDir := getContainerRootDir(c.config.RootDir, id)
+
 	var execIO *cio.ExecIO
-	process, err := task.Exec(ctx, execID, pspec,
-		func(id string) (containerdio.IO, error) {
-			var err error
-			execIO, err = cio.NewExecIO(id, rootDir, opts.tty, opts.stdin != nil)
-			return execIO, err
-		},
-	)
+	rootDir := getContainerRootDir(c.config.RootDir, id)
+	attachIO := func(id string) (containerdio.IO, error) {
+		// execIO must be assigned to var in outer context
+		execIO, err = cio.NewExecIO(id, rootDir, opts.tty, opts.stdin != nil)
+		return execIO, err
+	}
+
+	process, err := task.Exec(ctx, execID, pspec, attachIO)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create exec %q: %v", execID, err)
 	}

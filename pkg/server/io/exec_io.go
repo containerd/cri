@@ -17,6 +17,7 @@ limitations under the License.
 package io
 
 import (
+	"context"
 	"io"
 	"sync"
 
@@ -28,10 +29,10 @@ import (
 
 // ExecIO holds the exec io.
 type ExecIO struct {
+	cio.DirectIO
 	id    string
 	fifos *cio.FIFOSet
-	*stdioPipes
-	closer *wgCloser
+	wg    *sync.WaitGroup
 }
 
 var _ cio.IO = &ExecIO{}
@@ -42,46 +43,40 @@ func NewExecIO(id, root string, tty, stdin bool) (*ExecIO, error) {
 	if err != nil {
 		return nil, err
 	}
-	stdio, closer, err := newStdioPipes(fifos)
+	dio, err := cio.NewDirectIO(context.Background(), fifos)
 	if err != nil {
 		return nil, err
 	}
 	return &ExecIO{
-		id:         id,
-		fifos:      fifos,
-		stdioPipes: stdio,
-		closer:     closer,
+		id:       id,
+		fifos:    fifos,
+		DirectIO: *dio,
 	}, nil
-}
-
-// Config returns io config.
-func (e *ExecIO) Config() cio.Config {
-	return e.fifos.Config
 }
 
 // Attach attaches exec stdio. The logic is similar with container io attach.
 func (e *ExecIO) Attach(opts AttachOptions) <-chan struct{} {
 	var wg sync.WaitGroup
 	var stdinStreamRC io.ReadCloser
-	if e.stdin != nil && opts.Stdin != nil {
+	if e.Stdin != nil && opts.Stdin != nil {
 		stdinStreamRC = cioutil.NewWrapReadCloser(opts.Stdin)
 		wg.Add(1)
 		go func() {
-			if _, err := io.Copy(e.stdin, stdinStreamRC); err != nil {
+			if _, err := io.Copy(e.Stdin, stdinStreamRC); err != nil {
 				logrus.WithError(err).Errorf("Failed to redirect stdin for container exec %q", e.id)
 			}
 			logrus.Infof("Container exec %q stdin closed", e.id)
 			if opts.StdinOnce && !opts.Tty {
-				e.stdin.Close()
+				e.Stdin.Close()
 				if err := opts.CloseStdin(); err != nil {
 					logrus.WithError(err).Errorf("Failed to close stdin for container exec %q", e.id)
 				}
 			} else {
-				if e.stdout != nil {
-					e.stdout.Close()
+				if e.Stdout != nil {
+					e.Stdout.Close()
 				}
-				if e.stderr != nil {
-					e.stderr.Close()
+				if e.Stderr != nil {
+					e.Stderr.Close()
 				}
 			}
 			wg.Done()
@@ -97,7 +92,7 @@ func (e *ExecIO) Attach(opts AttachOptions) <-chan struct{} {
 		if stdinStreamRC != nil {
 			stdinStreamRC.Close()
 		}
-		e.closer.wg.Done()
+		e.wg.Done()
 		wg.Done()
 		logrus.Infof("Finish piping %q of container exec %q", t, e.id)
 	}
@@ -105,15 +100,15 @@ func (e *ExecIO) Attach(opts AttachOptions) <-chan struct{} {
 	if opts.Stdout != nil {
 		wg.Add(1)
 		// Closer should wait for this routine to be over.
-		e.closer.wg.Add(1)
-		go attachOutput(Stdout, opts.Stdout, e.stdout)
+		e.wg.Add(1)
+		go attachOutput(Stdout, opts.Stdout, e.Stdout)
 	}
 
 	if !opts.Tty && opts.Stderr != nil {
 		wg.Add(1)
 		// Closer should wait for this routine to be over.
-		e.closer.wg.Add(1)
-		go attachOutput(Stderr, opts.Stderr, e.stderr)
+		e.wg.Add(1)
+		go attachOutput(Stderr, opts.Stderr, e.Stderr)
 	}
 
 	done := make(chan struct{})
@@ -124,23 +119,9 @@ func (e *ExecIO) Attach(opts AttachOptions) <-chan struct{} {
 	return done
 }
 
-// Cancel cancels exec io.
-func (e *ExecIO) Cancel() {
-	e.closer.Cancel()
-}
-
-// Wait waits exec io to finish.
+// Wait for IO streams to end
 func (e *ExecIO) Wait() {
-	e.closer.Wait()
-}
-
-// Close closes all FIFOs.
-func (e *ExecIO) Close() error {
-	if e.closer != nil {
-		e.closer.Close()
+	if e.wg != nil {
+		e.wg.Wait()
 	}
-	if e.fifos != nil {
-		return e.fifos.Close()
-	}
-	return nil
 }
