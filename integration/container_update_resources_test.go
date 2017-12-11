@@ -37,14 +37,8 @@ func checkMemoryLimit(t *testing.T, spec *runtimespec.Spec, memLimit int64) {
 }
 
 func TestUpdateContainerResources(t *testing.T) {
-	t.Logf("Create a sandbox")
-	sbConfig := PodSandboxConfig("sandbox", "update-container-resources")
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
+	sbConfig, sb := runPod(t, "sandbox", "update-container-resources")
+	defer cleanPod(t, sb)
 
 	t.Logf("Create a container with memory limit")
 	cnConfig := ContainerConfig(

@@ -28,34 +28,17 @@ import (
 
 // Test to verify for a container ID
 func TestContainerStats(t *testing.T) {
-	t.Logf("Create a pod config and run sandbox container")
-	sbConfig := PodSandboxConfig("sandbox1", "stats")
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
+	sbConfig, sb := runPod(t, "sandbox1", "stats")
+	defer cleanPod(t, sb)
+
 	t.Logf("Create a container config and run container in a pod")
-	containerConfig := ContainerConfig(
-		"container1",
-		pauseImage,
-		WithTestLabels(),
-		WithTestAnnotations(),
-	)
-	cn, err := runtimeService.CreateContainer(sb, containerConfig, sbConfig)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.RemoveContainer(cn))
-	}()
-	require.NoError(t, runtimeService.StartContainer(cn))
-	defer func() {
-		assert.NoError(t, runtimeService.StopContainer(cn, 10))
-	}()
+	cn, containerConfig := runContainerInPod(t, "container1", sb, sbConfig)
+	defer cleanContainer(t, cn)
 
 	t.Logf("Fetch stats for container")
 	var s *runtime.ContainerStats
 	require.NoError(t, Eventually(func() (bool, error) {
+		var err error
 		s, err = runtimeService.ContainerStats(cn)
 		if err != nil {
 			return false, err
@@ -73,52 +56,20 @@ func TestContainerStats(t *testing.T) {
 
 // Test to verify filtering without any filter
 func TestContainerListStats(t *testing.T) {
-	t.Logf("Create a pod config and run sandbox container")
-	sbConfig := PodSandboxConfig("running-pod", "statsls")
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
+	sbConfig, sb := runPod(t, "running-pod", "statsls")
+	defer cleanPod(t, sb)
+
 	t.Logf("Create a container config and run containers in a pod")
 	containerConfigMap := make(map[string]*runtime.ContainerConfig)
 	for i := 0; i < 3; i++ {
 		cName := fmt.Sprintf("container%d", i)
-		containerConfig := ContainerConfig(
-			cName,
-			pauseImage,
-			WithTestLabels(),
-			WithTestAnnotations(),
-		)
-		cn, err := runtimeService.CreateContainer(sb, containerConfig, sbConfig)
-		require.NoError(t, err)
+		cn, containerConfig := runContainerInPod(t, cName, sb, sbConfig)
 		containerConfigMap[cn] = containerConfig
-		defer func() {
-			assert.NoError(t, runtimeService.RemoveContainer(cn))
-		}()
-		require.NoError(t, runtimeService.StartContainer(cn))
-		defer func() {
-			assert.NoError(t, runtimeService.StopContainer(cn, 10))
-		}()
+		defer cleanContainer(t, cn)
 	}
 
 	t.Logf("Fetch all container stats")
-	var stats []*runtime.ContainerStats
-	require.NoError(t, Eventually(func() (bool, error) {
-		stats, err = runtimeService.ListContainerStats(&runtime.ContainerStatsFilter{})
-		if err != nil {
-			return false, err
-		}
-		for _, s := range stats {
-			if s.GetWritableLayer().GetUsedBytes().GetValue() == 0 &&
-				s.GetWritableLayer().GetInodesUsed().GetValue() == 0 {
-				return false, nil
-			}
-		}
-		return true, nil
-	}, time.Second, 30*time.Second))
-
+	stats := listContainerStats(t, &runtime.ContainerStatsFilter{}, 3)
 	t.Logf("Verify all container stats")
 	for _, s := range stats {
 		testStats(t, s, containerConfigMap[s.GetAttributes().GetId()])
@@ -128,55 +79,21 @@ func TestContainerListStats(t *testing.T) {
 // Test to verify filtering given a specific container ID
 // TODO Convert the filter tests into table driven tests and unit tests
 func TestContainerListStatsWithIdFilter(t *testing.T) {
-	t.Logf("Create a pod config and run sandbox container")
-	sbConfig := PodSandboxConfig("running-pod", "statsls")
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
+	sbConfig, sb := runPod(t, "running-pod", "statsls")
+	defer cleanPod(t, sb)
+
 	t.Logf("Create a container config and run containers in a pod")
 	containerConfigMap := make(map[string]*runtime.ContainerConfig)
 	for i := 0; i < 3; i++ {
 		cName := fmt.Sprintf("container%d", i)
-		containerConfig := ContainerConfig(
-			cName,
-			pauseImage,
-			WithTestLabels(),
-			WithTestAnnotations(),
-		)
-		cn, err := runtimeService.CreateContainer(sb, containerConfig, sbConfig)
+		cn, containerConfig := runContainerInPod(t, cName, sb, sbConfig)
 		containerConfigMap[cn] = containerConfig
-		require.NoError(t, err)
-		defer func() {
-			assert.NoError(t, runtimeService.RemoveContainer(cn))
-		}()
-		require.NoError(t, runtimeService.StartContainer(cn))
-		defer func() {
-			assert.NoError(t, runtimeService.StopContainer(cn, 10))
-		}()
+		defer cleanContainer(t, cn)
 	}
 
 	t.Logf("Fetch container stats for each container with Filter")
-	var stats []*runtime.ContainerStats
 	for id := range containerConfigMap {
-		require.NoError(t, Eventually(func() (bool, error) {
-			stats, err = runtimeService.ListContainerStats(
-				&runtime.ContainerStatsFilter{Id: id})
-			if err != nil {
-				return false, err
-			}
-			if len(stats) != 1 {
-				return false, fmt.Errorf("unexpected stats length")
-			}
-			if stats[0].GetWritableLayer().GetUsedBytes().GetValue() != 0 &&
-				stats[0].GetWritableLayer().GetInodesUsed().GetValue() != 0 {
-				return true, nil
-			}
-			return false, nil
-		}, time.Second, 30*time.Second))
-
+		stats := listContainerStats(t, &runtime.ContainerStatsFilter{Id: id}, 1)
 		t.Logf("Verify container stats for %s", id)
 		for _, s := range stats {
 			require.Equal(t, s.GetAttributes().GetId(), id)
@@ -188,53 +105,20 @@ func TestContainerListStatsWithIdFilter(t *testing.T) {
 // Test to verify filtering given a specific Sandbox ID. Stats for
 // all the containers in a pod should be returned
 func TestContainerListStatsWithSandboxIdFilter(t *testing.T) {
-	t.Logf("Create a pod config and run sandbox container")
-	sbConfig := PodSandboxConfig("running-pod", "statsls")
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
+	sbConfig, sb := runPod(t, "running-pod", "statsls")
+	defer cleanPod(t, sb)
+
 	t.Logf("Create a container config and run containers in a pod")
 	containerConfigMap := make(map[string]*runtime.ContainerConfig)
 	for i := 0; i < 3; i++ {
 		cName := fmt.Sprintf("container%d", i)
-		containerConfig := ContainerConfig(
-			cName,
-			pauseImage,
-			WithTestLabels(),
-			WithTestAnnotations(),
-		)
-		cn, err := runtimeService.CreateContainer(sb, containerConfig, sbConfig)
+		cn, containerConfig := runContainerInPod(t, cName, sb, sbConfig)
 		containerConfigMap[cn] = containerConfig
-		require.NoError(t, err)
-		defer func() {
-			assert.NoError(t, runtimeService.RemoveContainer(cn))
-		}()
-		require.NoError(t, runtimeService.StartContainer(cn))
-		defer func() {
-			assert.NoError(t, runtimeService.StopContainer(cn, 10))
-		}()
+		defer cleanContainer(t, cn)
 	}
 
 	t.Logf("Fetch container stats for each container with Filter")
-	var stats []*runtime.ContainerStats
-	require.NoError(t, Eventually(func() (bool, error) {
-		stats, err = runtimeService.ListContainerStats(
-			&runtime.ContainerStatsFilter{PodSandboxId: sb})
-		if err != nil {
-			return false, err
-		}
-		if len(stats) != 3 {
-			return false, fmt.Errorf("unexpected stats length")
-		}
-		if stats[0].GetWritableLayer().GetUsedBytes().GetValue() != 0 &&
-			stats[0].GetWritableLayer().GetInodesUsed().GetValue() != 0 {
-			return true, nil
-		}
-		return false, nil
-	}, time.Second, 30*time.Second))
+	stats := listContainerStats(t, &runtime.ContainerStatsFilter{PodSandboxId: sb}, 3)
 	t.Logf("Verify container stats for sandbox %q", sb)
 	for _, s := range stats {
 		testStats(t, s, containerConfigMap[s.GetAttributes().GetId()])
@@ -244,53 +128,21 @@ func TestContainerListStatsWithSandboxIdFilter(t *testing.T) {
 // Test to verify filtering given a specific container ID and
 // sandbox ID
 func TestContainerListStatsWithIdSandboxIdFilter(t *testing.T) {
-	t.Logf("Create a pod config and run sandbox container")
-	sbConfig := PodSandboxConfig("running-pod", "statsls")
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
+	sbConfig, sb := runPod(t, "running-pod", "statsls")
+	defer cleanPod(t, sb)
+
 	t.Logf("Create container config and run containers in a pod")
 	containerConfigMap := make(map[string]*runtime.ContainerConfig)
 	for i := 0; i < 3; i++ {
 		cName := fmt.Sprintf("container%d", i)
-		containerConfig := ContainerConfig(
-			cName,
-			pauseImage,
-			WithTestLabels(),
-			WithTestAnnotations(),
-		)
-		cn, err := runtimeService.CreateContainer(sb, containerConfig, sbConfig)
+		cn, containerConfig := runContainerInPod(t, cName, sb, sbConfig)
 		containerConfigMap[cn] = containerConfig
-		require.NoError(t, err)
-		defer func() {
-			assert.NoError(t, runtimeService.RemoveContainer(cn))
-		}()
-		require.NoError(t, runtimeService.StartContainer(cn))
-		defer func() {
-			assert.NoError(t, runtimeService.StopContainer(cn, 10))
-		}()
+		defer cleanContainer(t, cn)
 	}
+
 	t.Logf("Fetch container stats for sandbox ID and container ID filter")
-	var stats []*runtime.ContainerStats
 	for id, config := range containerConfigMap {
-		require.NoError(t, Eventually(func() (bool, error) {
-			stats, err = runtimeService.ListContainerStats(
-				&runtime.ContainerStatsFilter{Id: id, PodSandboxId: sb})
-			if err != nil {
-				return false, err
-			}
-			if len(stats) != 1 {
-				return false, fmt.Errorf("unexpected stats length")
-			}
-			if stats[0].GetWritableLayer().GetUsedBytes().GetValue() != 0 &&
-				stats[0].GetWritableLayer().GetInodesUsed().GetValue() != 0 {
-				return true, nil
-			}
-			return false, nil
-		}, time.Second, 30*time.Second))
+		stats := listContainerStats(t, &runtime.ContainerStatsFilter{Id: id, PodSandboxId: sb}, 1)
 		t.Logf("Verify container stats for sandbox %q and container %q filter", sb, id)
 		for _, s := range stats {
 			testStats(t, s, config)
@@ -299,21 +151,7 @@ func TestContainerListStatsWithIdSandboxIdFilter(t *testing.T) {
 
 	t.Logf("Fetch container stats for sandbox truncID and container truncID filter ")
 	for id, config := range containerConfigMap {
-		require.NoError(t, Eventually(func() (bool, error) {
-			stats, err = runtimeService.ListContainerStats(
-				&runtime.ContainerStatsFilter{Id: id[:3], PodSandboxId: sb[:3]})
-			if err != nil {
-				return false, err
-			}
-			if len(stats) != 1 {
-				return false, fmt.Errorf("unexpected stats length")
-			}
-			if stats[0].GetWritableLayer().GetUsedBytes().GetValue() != 0 &&
-				stats[0].GetWritableLayer().GetInodesUsed().GetValue() != 0 {
-				return true, nil
-			}
-			return false, nil
-		}, time.Second, 30*time.Second))
+		stats := listContainerStats(t, &runtime.ContainerStatsFilter{Id: id[:3], PodSandboxId: sb[:3]}, 1)
 		t.Logf("Verify container stats for sandbox %q and container %q filter", sb, id)
 		for _, s := range stats {
 			testStats(t, s, config)
@@ -342,4 +180,59 @@ func testStats(t *testing.T,
 	require.NotEmpty(t, s.GetWritableLayer().GetUsedBytes().GetValue())
 	require.NotEmpty(t, s.GetWritableLayer().GetInodesUsed().GetValue())
 
+}
+
+func runPod(t *testing.T, name, namespace string) (*runtime.PodSandboxConfig, string) {
+	t.Logf("Create a pod config and run sandbox container")
+	sbConfig := PodSandboxConfig(name, namespace)
+	sb, err := runtimeService.RunPodSandbox(sbConfig)
+	require.NoError(t, err)
+	return sbConfig, sb
+}
+
+func cleanPod(t *testing.T, sId string) {
+	assert.NoError(t, runtimeService.StopPodSandbox(sId))
+	assert.NoError(t, runtimeService.RemovePodSandbox(sId))
+}
+
+func runContainerInPod(t *testing.T, cName, sb string,
+	sbConfig *runtime.PodSandboxConfig) (string, *runtime.ContainerConfig) {
+	containerConfig := ContainerConfig(
+		cName,
+		pauseImage,
+		WithTestLabels(),
+		WithTestAnnotations(),
+	)
+	cId, err := runtimeService.CreateContainer(sb, containerConfig, sbConfig)
+	require.NoError(t, err)
+	require.NoError(t, runtimeService.StartContainer(cId))
+	return cId, containerConfig
+}
+
+func cleanContainer(t *testing.T, cId string) {
+	assert.NoError(t, runtimeService.StopContainer(cId, 10))
+	assert.NoError(t, runtimeService.RemoveContainer(cId))
+}
+
+func listContainerStats(t *testing.T, filter *runtime.ContainerStatsFilter, statsLen int) []*runtime.ContainerStats {
+	var stats []*runtime.ContainerStats
+	require.NoError(t, Eventually(func() (bool, error) {
+		stats, err := runtimeService.ListContainerStats(filter)
+		if err != nil {
+			return false, err
+		}
+		if len(stats) != statsLen {
+			return false, fmt.Errorf("unexpected stats length")
+		}
+
+		for _, s := range stats {
+			if s.GetWritableLayer().GetUsedBytes().GetValue() == 0 ||
+				s.GetWritableLayer().GetInodesUsed().GetValue() == 0 {
+				return false, nil
+			}
+		}
+		return true, nil
+	}, time.Second, 30*time.Second))
+
+	return stats
 }

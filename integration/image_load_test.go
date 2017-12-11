@@ -68,14 +68,10 @@ func TestImageLoad(t *testing.T) {
 	require.NotNil(t, img)
 	require.Equal(t, []string{loadedImage}, img.RepoTags)
 
+	sbConfig, sb := runPod(t, "sandbox", "image-load")
+	defer cleanPod(t, sb)
+
 	t.Logf("create a container with the loaded image")
-	sbConfig := PodSandboxConfig("sandbox", Randomize("image-load"))
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
 	containerConfig := ContainerConfig(
 		"container",
 		testImage,

@@ -28,10 +28,7 @@ import (
 
 func TestSandboxCleanRemove(t *testing.T) {
 	ctx := context.Background()
-	t.Logf("Create a sandbox")
-	sbConfig := PodSandboxConfig("sandbox", "clean-remove")
-	sb, err := runtimeService.RunPodSandbox(sbConfig)
-	require.NoError(t, err)
+	_, sb := runPod(t, "sandbox", "clean-remove")
 	defer func() {
 		// Make sure the sandbox is cleaned up in any case.
 		runtimeService.StopPodSandbox(sb)
@@ -58,6 +55,5 @@ func TestSandboxCleanRemove(t *testing.T) {
 	assert.Error(t, runtimeService.RemovePodSandbox(sb))
 
 	t.Logf("Should be able to remove the sandbox after properly stopped")
-	assert.NoError(t, runtimeService.StopPodSandbox(sb))
-	assert.NoError(t, runtimeService.RemovePodSandbox(sb))
+	cleanPod(t, sb)
 }

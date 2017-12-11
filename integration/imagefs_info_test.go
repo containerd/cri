@@ -36,14 +36,8 @@ func TestImageFSInfo(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	t.Logf("Create a sandbox to make sure there is an active snapshot")
-	config := PodSandboxConfig("running-pod", "imagefs")
-	sb, err := runtimeService.RunPodSandbox(config)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
-
+	_, sb := runPod(t, "sandbox", "imagefs")
+	defer cleanPod(t, sb)
 	// It takes time to populate imagefs stats. Use eventually
 	// to check for a period of time.
 	t.Logf("Check imagefs info")
