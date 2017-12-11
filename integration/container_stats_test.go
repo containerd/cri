@@ -26,6 +26,8 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
 )
 
+type VerifyContainerListStats func(*testing.T, map[string]*runtime.ContainerConfig, string)
+
 // Test to verify for a container ID
 func TestContainerStats(t *testing.T) {
 	sbConfig, sb := runPod(t, "sandbox1", "stats")
@@ -68,6 +70,19 @@ func TestContainerListStats(t *testing.T) {
 		defer cleanContainer(t, cn)
 	}
 
+	for desc, verifyFunc := range map[string]VerifyContainerListStats{
+		"without filter":        verifyContainerListStatsWithoutFilter,
+		"with id filter":        verifyContainerListStatsWithIdFilter,
+		"with sandboxId filter": verifyContainerListStatsWithSandboxIdFilter,
+		"with id and sandboxid": verifyContainerListStatsWithIdSandboxIdFilter,
+	} {
+		t.Run(fmt.Sprintf("Verify container list stats %s", desc), func(t *testing.T) {
+			verifyFunc(t, containerConfigMap, sb)
+		})
+	}
+}
+
+func verifyContainerListStatsWithoutFilter(t *testing.T, containerConfigMap map[string]*runtime.ContainerConfig, sb string) {
 	t.Logf("Fetch all container stats")
 	stats := listContainerStats(t, &runtime.ContainerStatsFilter{}, 3)
 	t.Logf("Verify all container stats")
@@ -76,21 +91,7 @@ func TestContainerListStats(t *testing.T) {
 	}
 }
 
-// Test to verify filtering given a specific container ID
-// TODO Convert the filter tests into table driven tests and unit tests
-func TestContainerListStatsWithIdFilter(t *testing.T) {
-	sbConfig, sb := runPod(t, "running-pod", "statsls")
-	defer cleanPod(t, sb)
-
-	t.Logf("Create a container config and run containers in a pod")
-	containerConfigMap := make(map[string]*runtime.ContainerConfig)
-	for i := 0; i < 3; i++ {
-		cName := fmt.Sprintf("container%d", i)
-		cn, containerConfig := runContainerInPod(t, cName, sb, sbConfig)
-		containerConfigMap[cn] = containerConfig
-		defer cleanContainer(t, cn)
-	}
-
+func verifyContainerListStatsWithIdFilter(t *testing.T, containerConfigMap map[string]*runtime.ContainerConfig, sb string) {
 	t.Logf("Fetch container stats for each container with Filter")
 	for id := range containerConfigMap {
 		stats := listContainerStats(t, &runtime.ContainerStatsFilter{Id: id}, 1)
@@ -102,21 +103,7 @@ func TestContainerListStatsWithIdFilter(t *testing.T) {
 	}
 }
 
-// Test to verify filtering given a specific Sandbox ID. Stats for
-// all the containers in a pod should be returned
-func TestContainerListStatsWithSandboxIdFilter(t *testing.T) {
-	sbConfig, sb := runPod(t, "running-pod", "statsls")
-	defer cleanPod(t, sb)
-
-	t.Logf("Create a container config and run containers in a pod")
-	containerConfigMap := make(map[string]*runtime.ContainerConfig)
-	for i := 0; i < 3; i++ {
-		cName := fmt.Sprintf("container%d", i)
-		cn, containerConfig := runContainerInPod(t, cName, sb, sbConfig)
-		containerConfigMap[cn] = containerConfig
-		defer cleanContainer(t, cn)
-	}
-
+func verifyContainerListStatsWithSandboxIdFilter(t *testing.T, containerConfigMap map[string]*runtime.ContainerConfig, sb string) {
 	t.Logf("Fetch container stats for each container with Filter")
 	stats := listContainerStats(t, &runtime.ContainerStatsFilter{PodSandboxId: sb}, 3)
 	t.Logf("Verify container stats for sandbox %q", sb)
@@ -125,21 +112,7 @@ func TestContainerListStatsWithSandboxIdFilter(t *testing.T) {
 	}
 }
 
-// Test to verify filtering given a specific container ID and
-// sandbox ID
-func TestContainerListStatsWithIdSandboxIdFilter(t *testing.T) {
-	sbConfig, sb := runPod(t, "running-pod", "statsls")
-	defer cleanPod(t, sb)
-
-	t.Logf("Create container config and run containers in a pod")
-	containerConfigMap := make(map[string]*runtime.ContainerConfig)
-	for i := 0; i < 3; i++ {
-		cName := fmt.Sprintf("container%d", i)
-		cn, containerConfig := runContainerInPod(t, cName, sb, sbConfig)
-		containerConfigMap[cn] = containerConfig
-		defer cleanContainer(t, cn)
-	}
-
+func verifyContainerListStatsWithIdSandboxIdFilter(t *testing.T, containerConfigMap map[string]*runtime.ContainerConfig, sb string) {
 	t.Logf("Fetch container stats for sandbox ID and container ID filter")
 	for id, config := range containerConfigMap {
 		stats := listContainerStats(t, &runtime.ContainerStatsFilter{Id: id, PodSandboxId: sb}, 1)
