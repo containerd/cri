@@ -96,6 +96,9 @@ type Config struct {
 	ProfilingPort string `toml:"profiling_port" json:"profilingPort,omitempty"`
 	// ProfilingAddress is address for profiling via host:port/debug/pprof/
 	ProfilingAddress string `toml:"profiling_addr" json:"profilingAddress,omitempty"`
+	// OCIHooks (optional) is a path to a json file that specifies the OCI
+	// spec Hooks struct.
+	OCIHooks string `toml:"oci_hooks" json:"ociHooks,omitempty"`
 }
 
 // CRIContainerdOptions contains cri-containerd command line and toml options.
@@ -158,6 +161,8 @@ func (c *CRIContainerdOptions) AddFlags(fs *pflag.FlagSet) {
 		defaults.ProfilingPort, "Profiling port for web interface host:port/debug/pprof/.")
 	fs.StringVar(&c.ProfilingAddress, "profiling-addr",
 		defaults.ProfilingAddress, "Profiling address for web interface host:port/debug/pprof/.")
+	fs.StringVar(&c.OCIHooks, "oci-hooks",
+		defaults.OCIHooks, "Path to OCI runtime spec Hooks struct in json.")
 }
 
 // InitFlags load configurations from config file, and then overwrite with flags.
@@ -228,5 +233,6 @@ func defaultConfig() Config {
 		EnableProfiling:     true,
 		ProfilingPort:       "10011",
 		ProfilingAddress:    "127.0.0.1",
+		OCIHooks:            "",
 	}
 }

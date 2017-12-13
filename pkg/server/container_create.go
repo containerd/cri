@@ -17,7 +17,9 @@ limitations under the License.
 package server
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -320,6 +322,11 @@ func (c *criContainerdService) generateContainerSpec(id string, sandboxPid uint3
 	mounts := append(extraMounts, config.GetMounts()...)
 	if err := c.addOCIBindMounts(&g, mounts, mountLabel); err != nil {
 		return nil, fmt.Errorf("failed to set OCI bind mounts %+v: %v", mounts, err)
+	}
+
+	ociHooksProfile := c.config.OCIHooks
+	if err := c.setOCIHooks(&g, ociHooksProfile); err != nil { // TODO (mikebrow): clean up prototype
+		return nil, fmt.Errorf("failed to set OCI hooks %+v: %v", ociHooksProfile, err)
 	}
 
 	if securityContext.GetPrivileged() {
@@ -849,4 +856,21 @@ func ensureSharedOrSlave(path string, lookupMount func(string) (mount.Info, erro
 		}
 	}
 	return fmt.Errorf("path %q is mounted on %q but it is not a shared or slave mount", path, mountInfo.Mountpoint)
+}
+
+// setOCIHooks sets hooks in the spec
+func (c *criContainerdService) setOCIHooks(g *generate.Generator, profile string) error {
+	if profile == "" {
+		return nil
+	}
+	hooks := &runtimespec.Hooks{}
+	f, err := ioutil.ReadFile(profile)
+	if err != nil {
+		return fmt.Errorf("Cannot load OCI hooks profile %q: %v", profile, err)
+	}
+	if err := json.Unmarshal(f, hooks); err != nil {
+		return fmt.Errorf("Decoding OCI hooks profile failed %q: %v", profile, err)
+	}
+	g.Spec().Hooks = hooks
+	return nil
 }
