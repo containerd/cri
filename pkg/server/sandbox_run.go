@@ -40,6 +40,24 @@ import (
 	"github.com/kubernetes-incubator/cri-containerd/pkg/util"
 )
 
+// ContainerType values
+const (
+	// ContainerTypeSandbox represents a pod sandbox container
+	ContainerTypeSandbox = "sandbox"
+
+	// ContainerTypeContainer represents a container running within a pod
+	ContainerTypeContainer = "container"
+
+	// ContainerType is the container type (sandbox or container) annotation
+	ContainerType = "io.kubernetes.cri-o.ContainerType"
+
+	// SandboxID is the sandbox ID annotation
+	SandboxID = "io.kubernetes.cri-o.SandboxID"
+
+	// SandboxName is the sandbox name annotation
+	SandboxName = "io.kubernetes.cri-o.SandboxName"
+)
+
 func init() {
 	typeurl.Register(&sandboxstore.Metadata{},
 		"github.com/kubernetes-incubator/cri-containerd/pkg/store/sandbox", "Metadata")
@@ -127,6 +145,7 @@ func (c *criContainerdService) RunPodSandbox(ctx context.Context, r *runtime.Run
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate sandbox container spec: %v", err)
 	}
+
 	glog.V(4).Infof("Sandbox container spec: %+v", spec)
 
 	var specOpts []oci.SpecOpts
@@ -319,6 +338,10 @@ func (c *criContainerdService) generateSandboxContainerSpec(id string, config *r
 
 	g.SetLinuxResourcesCPUShares(uint64(defaultSandboxCPUshares))
 	g.SetProcessOOMScoreAdj(int(defaultSandboxOOMAdj))
+
+	g.AddAnnotation(ContainerType, ContainerTypeSandbox)
+	g.AddAnnotation(SandboxID, id)
+	g.AddAnnotation(SandboxName, config.Metadata.Name)
 
 	return g.Spec(), nil
 }

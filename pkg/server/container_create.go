@@ -148,6 +148,9 @@ func (c *criContainerdService) CreateContainer(ctx context.Context, r *runtime.C
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate container %q spec: %v", id, err)
 	}
+	spec.Annotations[SandboxID] = meta.SandboxID
+	spec.Annotations[SandboxName] = meta.Name
+
 	glog.V(4).Infof("Container %q spec: %#+v", id, spew.NewFormatter(spec))
 
 	// Set snapshotter before any other options.
@@ -365,6 +368,8 @@ func (c *criContainerdService) generateContainerSpec(id string, sandboxPid uint3
 	for _, group := range supplementalGroups {
 		g.AddProcessAdditionalGid(uint32(group))
 	}
+
+	g.AddAnnotation(ContainerType, ContainerTypeContainer)
 
 	return g.Spec(), nil
 }

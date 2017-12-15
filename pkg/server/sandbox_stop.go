@@ -55,6 +55,10 @@ func (c *criContainerdService) StopPodSandbox(ctx context.Context, r *runtime.St
 		}
 	}
 
+	if err := c.stopSandboxContainer(ctx, sandbox.Container); err != nil {
+		return nil, fmt.Errorf("failed to stop sandbox container %q: %v", id, err)
+	}
+
 	// Teardown network for sandbox.
 	if sandbox.NetNSPath != "" && sandbox.NetNS != nil {
 		if _, err := os.Stat(sandbox.NetNSPath); err != nil {
@@ -89,9 +93,6 @@ func (c *criContainerdService) StopPodSandbox(ctx context.Context, r *runtime.St
 		return nil, fmt.Errorf("failed to unmount sandbox files in %q: %v", sandboxRoot, err)
 	}
 
-	if err := c.stopSandboxContainer(ctx, sandbox.Container); err != nil {
-		return nil, fmt.Errorf("failed to stop sandbox container %q: %v", id, err)
-	}
 	return &runtime.StopPodSandboxResponse{}, nil
 }
 
