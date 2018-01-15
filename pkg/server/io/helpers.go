@@ -16,7 +16,6 @@ limitations under the License.
 
 package io
 
-
 import (
 	"io"
 	"path/filepath"

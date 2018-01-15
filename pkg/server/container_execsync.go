@@ -148,7 +148,7 @@ func (c *criContainerdService) execInContainer(ctx context.Context, id string, o
 		}
 	})
 
-	attachDone := execIO.Attach(cio.AttachOptions{
+	execIO.Attach(cio.AttachOptions{
 		Stdin:     opts.stdin,
 		Stdout:    opts.stdout,
 		Stderr:    opts.stderr,
@@ -177,7 +177,7 @@ func (c *criContainerdService) execInContainer(ctx context.Context, id string, o
 		exitRes := <-exitCh
 		logrus.Infof("Timeout received while waiting for exec process kill %q code %d and error %v",
 			execID, exitRes.ExitCode(), exitRes.Error())
-		<-attachDone
+		execIO.Wait()
 		logrus.Debugf("Stream pipe for exec process %q done", execID)
 		return nil, fmt.Errorf("timeout %v exceeded", opts.timeout)
 	case exitRes := <-exitCh:
@@ -186,7 +186,7 @@ func (c *criContainerdService) execInContainer(ctx context.Context, id string, o
 		if err != nil {
 			return nil, fmt.Errorf("failed while waiting for exec %q: %v", execID, err)
 		}
-		<-attachDone
+		execIO.Wait()
 		logrus.Debugf("Stream pipe for exec process %q done", execID)
 		return &code, nil
 	}

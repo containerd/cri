@@ -55,7 +55,7 @@ func NewExecIO(id, root string, tty, stdin bool) (*ExecIO, error) {
 }
 
 // Attach attaches exec stdio. The logic is similar with container io attach.
-func (e *ExecIO) Attach(opts AttachOptions) <-chan struct{} {
+func (e *ExecIO) Attach(opts AttachOptions) {
 	var wg sync.WaitGroup
 	var stdinStreamRC io.ReadCloser
 	if e.Stdin != nil && opts.Stdin != nil {
@@ -110,13 +110,6 @@ func (e *ExecIO) Attach(opts AttachOptions) <-chan struct{} {
 		e.wg.Add(1)
 		go attachOutput(Stderr, opts.Stderr, e.Stderr)
 	}
-
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-	return done
 }
 
 // Wait for IO streams to end
