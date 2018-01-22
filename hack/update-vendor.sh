@@ -24,10 +24,10 @@ cd ${ROOT}
 update_hack_versions() {
   need_update=false
   declare -A map=()
-  map["RUNC_VERSION"]="github.com/opencontainers/runc"
-  map["CNI_VERSION"]="github.com/containernetworking/cni"
-  map["CONTAINERD_VERSION"]="github.com/containerd/containerd"
-  map["KUBERNETES_VERSION"]="k8s.io/kubernetes"
+  map["RUNC_VERSION"]=${RUNC_PKG}
+  map["CNI_VERSION"]=${CNI_PKG}
+  map["CONTAINERD_VERSION"]=${CONTAINERD_PKG}
+  map["KUBERNETES_VERSION"]=${KUBERNETES_PKG}
   for key in ${!map[@]}
   do
     vendor_commitid=$(grep ${map[${key}]} vendor.conf | awk '{print $2}')
@@ -55,13 +55,16 @@ update_hack_versions
 # hack/versions should be correct now.
 echo "Compare vendor with containerd vendors..."
 source hack/versions
-if [ -z "${CONTAINERD_REPO}" ]; then
-  CONTAINERD_REPO=containerd/containerd
-else
-  CONTAINERD_REPO=${CONTAINERD_REPO#*/}
-fi
-containerd_vendor=$(mktemp /tmp/containerd-vendor.conf.XXXX)
-curl -s https://raw.githubusercontent.com/${CONTAINERD_REPO}/${CONTAINERD_VERSION}/vendor.conf > ${containerd_vendor}
+echo "Checkout containerd repo and cleanup vendors..."
+# Create a temporary GOPATH.
+TMPGOPATH=$(mktemp -d /tmp/cri-containerd-update-vendor.XXXX)
+GOPATH=${TMPGOPATH}
+# Checkout containerd repo and remove vendors introduced
+# by cri plugin.
+checkout_repo ${CONTAINERD_PKG} ${CONTAINERD_VERSION} ${CONTAINERD_REPO}
+containerd_repo=${GOPATH}/src/${CONTAINERD_PKG}
+remove_cri_plugin ${containerd_repo}
+containerd_vendor=${containerd_repo}/vendor.conf
 # Create a temporary vendor file to update.
 tmp_vendor=$(mktemp /tmp/vendor.conf.XXXX)
 while read vendor; do
@@ -93,7 +96,7 @@ if ! diff vendor.conf ${tmp_vendor} > /dev/null; then
     mv ${tmp_vendor} vendor.conf
   fi
 fi
-rm ${containerd_vendor}
+rm -rf ${TMPGOPATH}
 
 echo "Compare new vendor with hack/versions..."
 update_hack_versions

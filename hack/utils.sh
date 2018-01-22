@@ -16,6 +16,13 @@
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
 
+RUNC_PKG=github.com/opencontainers/runc
+CNI_PKG=github.com/containernetworking/plugins
+CONTAINERD_PKG=github.com/containerd/containerd
+CRITOOL_PKG=github.com/kubernetes-incubator/cri-tools
+CRI_CONTAINERD_PKG=github.com/containerd/cri-containerd
+KUBERNETES_PKG=k8s.io/kubernetes
+
 # upload_logs_to_gcs uploads test logs to gcs.
 # Var set:
 # 1. Bucket: gcs bucket to upload logs.
@@ -60,4 +67,71 @@ sha256() {
   else
     shasum -a256 "$1" | awk '{ print $1 }'
   fi
+}
+
+# checkout_repo checks out specified repository
+# and switch to specified  version.
+# Var set:
+# 1) Pkg name.
+# 2) Version.
+# 3) Repo name (optional).
+# Env set:
+# 1) GOPATH
+checkout_repo() {
+  local -r pkg=$1
+  local -r version=$2
+  local repo=${3:-""}
+  if [ -z "${repo}" ]; then
+    repo=${pkg}
+  fi
+  if [[ -z "${GOPATH}" ]]; then
+    echo "GOPATH is not set"
+    exit 1
+  fi
+  path="${GOPATH}/src/${pkg}"
+  if [ ! -d ${path} ]; then
+    mkdir -p ${path}
+    git clone https://${repo} ${path}
+  fi
+  cd ${path}
+  git fetch --all
+  git checkout ${version}
+  cd -
+}
+
+# remove_cri_plugin removes cri plugin from containerd repository.
+# Var set:
+# 1. Repo: containerd repo path.
+remove_cri_plugin() {
+  local -r repo=$1
+  cd ${repo}
+  # 1. Remove cri-containerd dependency
+  local -r escaped_cri_containerd_pkg=$(echo ${CRI_CONTAINERD_PKG} | sed 's/\//\\\//g')
+  sed -i "/${escaped_cri_containerd_pkg}/d" cmd/containerd/builtins_linux.go
+  # 2. Remove unused dependencies from vendor.conf
+  if [ ! -x "$(command -v vndr)" ]; then
+    echo "vndr is not installed"
+    exit 1
+  fi
+  vndr > /dev/null 2>&1
+  tmp_vendor=$(mktemp /tmp/vendor.conf.XXXX)
+  while read vendor; do
+    # Another possible option is to reply on `vndr` output to check
+    # which vendor is unused, and remove it from vendor.conf.
+    # However, `vndr` doesn't report unused if the unused vendor contains
+    # LICENSE, vendor.conf etc, so we can't reply on that.
+    # Here, we assume that if a vendor doesn't contain go source files
+    # after `vndr`, it can be removed from vendor.conf.
+    vrepo=$(echo ${vendor} | awk '{print $1}')
+    if [ ! -d "vendor/${vrepo}" ]; then
+      continue
+    fi
+    gofiles=$(find "vendor/${vrepo}" -type f -name "*.go")
+    if [ -z "$gofiles" ]; then
+      continue
+    fi
+    echo ${vendor} >> ${tmp_vendor}
+  done < vendor.conf
+  mv ${tmp_vendor} vendor.conf
+  cd -
 }
