@@ -149,6 +149,10 @@ func NewCRIContainerdService(config options.Config) (CRIContainerdService, error
 		logrus.Warn("Skip retrieving imagefs UUID, kubelet will not be able to get imagefs capacity or perform imagefs disk eviction.")
 	}
 
+	// ocicni requires the cni config directory to exist, so make sure it is there.
+	if err := os.MkdirAll(config.NetworkPluginConfDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create cni config directory %q: %v", err, config.NetworkPluginConfDir)
+	}
 	c.netPlugin, err = ocicni.InitCNI(config.NetworkPluginConfDir, config.NetworkPluginBinDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cni plugin: %v", err)
