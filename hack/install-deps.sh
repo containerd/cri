@@ -27,7 +27,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
+source $(dirname "${BASH_SOURCE[0]}")/utils.sh
 . ${ROOT}/hack/versions
 
 # DESTDIR is the dest path to install dependencies.
@@ -62,38 +62,9 @@ CNI_CONFIG_DIR=${DESTDIR}/etc/cni/net.d
 CRICTL_DIR=${DESTDIR}/usr/local/bin
 CRICTL_CONFIG_DIR=${DESTDIR}/etc
 
-RUNC_PKG=github.com/opencontainers/runc
-CNI_PKG=github.com/containernetworking/plugins
-CONTAINERD_PKG=github.com/containerd/containerd
-CRITOOL_PKG=github.com/kubernetes-incubator/cri-tools
-CRI_CONTAINERD_PKG=github.com/containerd/cri-containerd
-
 # Create a temporary GOPATH for make install.deps.
 TMPGOPATH=$(mktemp -d /tmp/cri-containerd-install-deps.XXXX)
 GOPATH=${TMPGOPATH}
-
-# checkout_repo checks out specified repository
-# and switch to specified  version.
-# Varset:
-# 1) Pkg name;
-# 2) Version.
-# 3) Repo name (optional);
-checkout_repo() {
-  local -r pkg=$1
-  local -r version=$2
-  local repo=${3:-""}
-  if [ -z "${repo}" ]; then
-    repo=${pkg}
-  fi
-  path="${GOPATH}/src/${pkg}"
-  if [ ! -d ${path} ]; then
-    mkdir -p ${path}
-    git clone https://${repo} ${path}
-  fi
-  cd ${path}
-  git fetch --all
-  git checkout ${version}
-}
 
 # Install runc
 checkout_repo ${RUNC_PKG} ${RUNC_VERSION}
@@ -141,12 +112,25 @@ fi
 checkout_repo ${CONTAINERD_PKG} ${CONTAINERD_VERSION} ${CONTAINERD_REPO}
 cd ${GOPATH}/src/${CONTAINERD_PKG}
 if ${COOK_CONTAINERD}; then
-  # Verify that vendor.conf is in sync with containerd before cook containerd,
-  # this is a hard requirement.
-  if ! ${ROOT}/hack/update-vendor.sh -only-verify; then
-    echo "Please run hack/update-vendor.sh before cook containerd."
-    exit 1
-  fi
+  # Remove vendors introduced by cri plugin.
+  remove_cri_plugin .
+  # Make sure other vendors are in sync with containerd.
+  # TODO(random-liu): Deduplicate this with hack/update-vendor.sh.
+  while read vendor; do
+    repo=$(echo ${vendor} | awk '{print $1}')
+    commit=$(echo ${vendor} | awk '{print $2}')
+    alias=$(echo ${vendor} | awk '{print $3}')
+    vendor_in_containerd=$(grep ${repo} vendor.conf || true)
+    if [ -z "${vendor_in_containerd}" ]; then
+      continue
+    fi
+    commit_in_containerd=$(echo ${vendor_in_containerd} | awk '{print $2}')
+    alias_in_containerd=$(echo ${vendor_in_containerd} | awk '{print $3}')
+    if [[ "${commit}" != "${commit_in_containerd}" || "${alias}" != "${alias_in_containerd}" ]]; then
+      echo "Please run hack/update-vendor.sh before cook containerd."
+      exit 1
+    fi
+  done < ${ROOT}/vendor.conf
   # Import cri plugin into containerd.
   # TODO(random-liu): Remove this after containerd starts to vendor cri plugin.
   echo "import _ \"${CRI_CONTAINERD_PKG}\"" >> cmd/containerd/builtins_linux.go
@@ -184,6 +168,4 @@ ${sudo} bash -c 'cat >'${CRICTL_CONFIG_DIR}'/crictl.yaml <<EOF
 runtime-endpoint: /var/run/cri-containerd.sock
 EOF'
 
-# Clean the tmp GOPATH dir. Use sudo because runc build generates
-# some privileged files.
-${sudo} rm -rf ${TMPGOPATH}
+rm -rf ${TMPGOPATH}

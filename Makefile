@@ -160,9 +160,9 @@ else
 	git-validation -v -run DCO,short-subject -range $(EPOCH_TEST_COMMIT)..HEAD
 endif
 
-.PHONY: install.tools .install.gitvalidation .install.gometalinter
+.PHONY: install.tools .install.gitvalidation .install.gometalinter .install.vndr
 
-install.tools: .install.gitvalidation .install.gometalinter
+install.tools: .install.gitvalidation .install.gometalinter .install.vndr
 
 .install.gitvalidation:
 	$(GO) get -u github.com/vbatts/git-validation
@@ -170,6 +170,9 @@ install.tools: .install.gitvalidation .install.gometalinter
 .install.gometalinter:
 	$(GO) get -u github.com/alecthomas/gometalinter
 	gometalinter --install
+
+.install.vndr:
+	$(GO) get -u github.com/LK4D4/vndr
 
 .PHONY: \
 	binaries \

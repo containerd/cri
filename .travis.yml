@@ -54,6 +54,7 @@ jobs:
         - cat /tmp/test-cri/containerd.log
       go: 1.9.x
     - script:
+        - make .install.vndr
         - make install.deps COOK_CONTAINERD=true
         - make test-integration STANDALONE_CRI_CONTAINERD=false
         - make test-cri STANDALONE_CRI_CONTAINERD=false
