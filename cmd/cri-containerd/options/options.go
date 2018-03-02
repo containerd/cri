@@ -239,6 +239,8 @@ func DefaultConfig() Config {
 				Runtime:       "io.containerd.runtime.v1.linux",
 				RuntimeEngine: "",
 				RuntimeRoot:   "",
+				RootDir:       "/var/lib/containerd",
+				Endpoint:      "/run/containerd/containerd.sock",
 			},
 			StreamServerAddress: "",
 			StreamServerPort:    "10010",
