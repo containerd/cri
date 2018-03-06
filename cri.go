@@ -22,6 +22,7 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/metadata"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/plugin"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -82,6 +83,13 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		return nil, errors.Wrap(err, "failed to create CRI service")
 	}
 
+	meta, err := ic.Get(plugin.MetadataPlugin)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get metadata plugin")
+	}
+	db := meta.(*metadata.DB)
+	contentStore := db.ContentStore()
+
 	// Use a goroutine to initialize cri service. The reason is that currently
 	// cri service requires containerd to be initialize.
 	go func() {
@@ -93,11 +101,16 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		ctrdServices, err := containerd.NewLocalServices(
 			ic.Address,
 			constants.K8sContainerdNamespace,
+			// TODO(random-liu): Publish event from content store.
+			// (containerd/containerd#2183)
+			contentStore,
 		)
 		if err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to create direct containerd services")
 		}
-		client, err := containerd.NewWithServices(ctrdServices)
+		client, err := containerd.NewWithServices(
+			ctrdServices,
+		)
 		if err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to initialize containerd client")
 		}

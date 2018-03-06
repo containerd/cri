@@ -20,7 +20,6 @@ import (
 	"time"
 
 	containersapi "github.com/containerd/containerd/api/services/containers/v1"
-	contentapi "github.com/containerd/containerd/api/services/content/v1"
 	diffapi "github.com/containerd/containerd/api/services/diff/v1"
 	eventsapi "github.com/containerd/containerd/api/services/events/v1"
 	imagesapi "github.com/containerd/containerd/api/services/images/v1"
@@ -43,8 +42,9 @@ import (
 
 // localServices is an implementation of Services through local function call.
 type localServices struct {
-	conn      *grpc.ClientConn
-	connector func() (*grpc.ClientConn, error)
+	conn         *grpc.ClientConn
+	connector    func() (*grpc.ClientConn, error)
+	contentStore content.Store
 }
 
 // NewLocalServices returns a new services using the passed-in
@@ -54,7 +54,7 @@ type localServices struct {
 // the grpc connection.
 // TODO(random-liu): Design the arg list better, probably
 // need some option functions. (containerd/containerd#2183)
-func NewLocalServices(address, ns string) (Services, error) {
+func NewLocalServices(address, ns string, contentStore content.Store) (Services, error) {
 	gopts := []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithInsecure(),
@@ -82,8 +82,9 @@ func NewLocalServices(address, ns string) (Services, error) {
 		return nil, err
 	}
 	return &localServices{
-		conn:      conn,
-		connector: connector,
+		conn:         conn,
+		connector:    connector,
+		contentStore: contentStore,
 	}, nil
 }
 
@@ -118,7 +119,7 @@ func (l *localServices) ContainerService() containers.Store {
 
 // ContentStore returns the underlying content Store
 func (l *localServices) ContentStore() content.Store {
-	return NewContentStoreFromClient(contentapi.NewContentClient(l.conn))
+	return l.contentStore
 }
 
 // SnapshotService returns the underlying snapshotter for the provided snapshotter name
