@@ -24,10 +24,12 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/containerd/containerd/namespaces"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 
+	"github.com/containerd/cri-containerd/pkg/constants"
 	sandboxstore "github.com/containerd/cri-containerd/pkg/store/sandbox"
 )
 
@@ -49,11 +51,12 @@ func (c *criContainerdService) PortForward(ctx context.Context, r *runtime.PortF
 // sandbox namespace, and run `socat` inside the namespace to forward stream for a specific
 // port. The `socat` command keeps running until it exits or client disconnect.
 func (c *criContainerdService) portForward(id string, port int32, stream io.ReadWriteCloser) error {
+	ctx := namespaces.WithNamespace(context.Background(), constants.K8sContainerdNamespace)
 	s, err := c.sandboxStore.Get(id)
 	if err != nil {
 		return fmt.Errorf("failed to find sandbox %q in store: %v", id, err)
 	}
-	t, err := s.Container.Task(context.Background(), nil)
+	t, err := s.Container.Task(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get sandbox container task: %v", err)
 	}

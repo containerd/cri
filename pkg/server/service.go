@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/plugin"
 	"github.com/cri-o/ocicni/pkg/ocicni"
 	runcapparmor "github.com/opencontainers/runc/libcontainer/apparmor"
@@ -37,6 +38,7 @@ import (
 	api "github.com/containerd/cri-containerd/pkg/api/v1"
 	"github.com/containerd/cri-containerd/pkg/atomic"
 	criconfig "github.com/containerd/cri-containerd/pkg/config"
+	"github.com/containerd/cri-containerd/pkg/constants"
 	osinterface "github.com/containerd/cri-containerd/pkg/os"
 	"github.com/containerd/cri-containerd/pkg/registrar"
 	containerstore "github.com/containerd/cri-containerd/pkg/store/container"
@@ -163,7 +165,8 @@ func (c *criContainerdService) Run(client *containerd.Client) error {
 	c.eventMonitor.subscribe(c.client)
 
 	logrus.Infof("Start recovering state")
-	if err := c.recover(context.Background()); err != nil {
+	ctx := namespaces.WithNamespace(context.Background(), constants.K8sContainerdNamespace)
+	if err := c.recover(ctx); err != nil {
 		return fmt.Errorf("failed to recover state: %v", err)
 	}
 
