@@ -60,6 +60,8 @@ func newGRPCServices(address string, copts clientOpts) (Services, error) {
 	if len(copts.dialOptions) > 0 {
 		gopts = copts.dialOptions
 	}
+	// TODO(random-liu): Figure out whether we still need this.
+	// (containerd/containerd#2183)
 	if copts.defaultns != "" {
 		unary, stream := newNSInterceptors(copts.defaultns)
 		gopts = append(gopts,
