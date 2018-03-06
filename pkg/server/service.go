@@ -45,9 +45,6 @@ import (
 	snapshotstore "github.com/containerd/cri-containerd/pkg/store/snapshot"
 )
 
-// k8sContainerdNamespace is the namespace we use to connect containerd.
-const k8sContainerdNamespace = "k8s.io"
-
 // grpcServices are all the grpc services provided by cri containerd.
 type grpcServices interface {
 	runtime.RuntimeServiceServer
@@ -57,7 +54,7 @@ type grpcServices interface {
 
 // CRIContainerdService is the interface implement CRI remote service server.
 type CRIContainerdService interface {
-	Run() error
+	Run(*containerd.Client) error
 	// io.Closer is used by containerd to gracefully stop cri service.
 	io.Closer
 	plugin.Service
@@ -158,17 +155,8 @@ func (c *criContainerdService) Register(s *grpc.Server) error {
 }
 
 // Run starts the cri-containerd service.
-func (c *criContainerdService) Run() error {
+func (c *criContainerdService) Run(client *containerd.Client) error {
 	logrus.Info("Start cri-containerd service")
-
-	// Connect containerd service here, to get rid of the containerd dependency
-	// in `NewCRIContainerdService`. This is required for plugin mode bootstrapping.
-	logrus.Info("Connect containerd service")
-	client, err := containerd.New(c.config.ContainerdEndpoint, containerd.WithDefaultNamespace(k8sContainerdNamespace))
-	if err != nil {
-		return fmt.Errorf("failed to initialize containerd client with endpoint %q: %v",
-			c.config.ContainerdEndpoint, err)
-	}
 	c.client = client
 
 	logrus.Info("Start subscribing containerd event")
