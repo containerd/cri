@@ -24,10 +24,12 @@ import (
 	"github.com/containerd/containerd/api/services/events/v1"
 	containerdio "github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/typeurl"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
+	"github.com/containerd/cri-containerd/pkg/constants"
 	"github.com/containerd/cri-containerd/pkg/store"
 	containerstore "github.com/containerd/cri-containerd/pkg/store/container"
 	sandboxstore "github.com/containerd/cri-containerd/pkg/store/sandbox"
@@ -48,6 +50,7 @@ type eventMonitor struct {
 // Create new event monitor. New event monitor will start subscribing containerd event. All events
 // happen after it should be monitored.
 func newEventMonitor(c *containerstore.Store, s *sandboxstore.Store) *eventMonitor {
+	// event subscribe doesn't need namespace.
 	ctx, cancel := context.WithCancel(context.Background())
 	return &eventMonitor{
 		containerStore: c,
@@ -98,6 +101,7 @@ func (em *eventMonitor) stop() {
 
 // handleEvent handles a containerd event.
 func (em *eventMonitor) handleEvent(evt *events.Envelope) {
+	ctx := namespaces.WithNamespace(context.Background(), constants.K8sContainerdNamespace)
 	any, err := typeurl.UnmarshalAny(evt.Event)
 	if err != nil {
 		logrus.WithError(err).Errorf("Failed to convert event envelope %+v", evt)
@@ -113,7 +117,7 @@ func (em *eventMonitor) handleEvent(evt *events.Envelope) {
 		logrus.Infof("TaskExit event %+v", e)
 		cntr, err := em.containerStore.Get(e.ContainerID)
 		if err == nil {
-			handleContainerExit(e, cntr)
+			handleContainerExit(ctx, e, cntr)
 			return
 		} else if err != store.ErrNotExist {
 			logrus.WithError(err).Errorf("Failed to get container %q", e.ContainerID)
@@ -122,7 +126,7 @@ func (em *eventMonitor) handleEvent(evt *events.Envelope) {
 		// Use GetAll to include sandbox in unknown state.
 		sb, err := em.sandboxStore.GetAll(e.ContainerID)
 		if err == nil {
-			handleSandboxExit(e, sb)
+			handleSandboxExit(ctx, e, sb)
 			return
 		} else if err != store.ErrNotExist {
 			logrus.WithError(err).Errorf("Failed to get sandbox %q", e.ContainerID)
@@ -151,13 +155,13 @@ func (em *eventMonitor) handleEvent(evt *events.Envelope) {
 }
 
 // handleContainerExit handles TaskExit event for container.
-func handleContainerExit(e *eventtypes.TaskExit, cntr containerstore.Container) {
+func handleContainerExit(ctx context.Context, e *eventtypes.TaskExit, cntr containerstore.Container) {
 	if e.Pid != cntr.Status.Get().Pid {
 		// Non-init process died, ignore the event.
 		return
 	}
 	// Attach container IO so that `Delete` could cleanup the stream properly.
-	task, err := cntr.Container.Task(context.Background(),
+	task, err := cntr.Container.Task(ctx,
 		func(*containerdio.FIFOSet) (containerdio.IO, error) {
 			return cntr.IO, nil
 		},
@@ -169,7 +173,7 @@ func handleContainerExit(e *eventtypes.TaskExit, cntr containerstore.Container) 
 		}
 	} else {
 		// TODO(random-liu): [P1] This may block the loop, we may want to spawn a worker
-		if _, err = task.Delete(context.Background()); err != nil {
+		if _, err = task.Delete(ctx); err != nil {
 			// TODO(random-liu): [P0] Enqueue the event and retry.
 			if !errdefs.IsNotFound(err) {
 				logrus.WithError(err).Errorf("failed to stop container %q", e.ContainerID)
@@ -199,13 +203,13 @@ func handleContainerExit(e *eventtypes.TaskExit, cntr containerstore.Container) 
 }
 
 // handleSandboxExit handles TaskExit event for sandbox.
-func handleSandboxExit(e *eventtypes.TaskExit, sb sandboxstore.Sandbox) {
+func handleSandboxExit(ctx context.Context, e *eventtypes.TaskExit, sb sandboxstore.Sandbox) {
 	if e.Pid != sb.Status.Get().Pid {
 		// Non-init process died, ignore the event.
 		return
 	}
 	// No stream attached to sandbox container.
-	task, err := sb.Container.Task(context.Background(), nil)
+	task, err := sb.Container.Task(ctx, nil)
 	if err != nil {
 		if !errdefs.IsNotFound(err) {
 			logrus.WithError(err).Errorf("failed to load task for sandbox %q", e.ContainerID)
@@ -213,7 +217,7 @@ func handleSandboxExit(e *eventtypes.TaskExit, sb sandboxstore.Sandbox) {
 		}
 	} else {
 		// TODO(random-liu): [P1] This may block the loop, we may want to spawn a worker
-		if _, err = task.Delete(context.Background()); err != nil {
+		if _, err = task.Delete(ctx); err != nil {
 			// TODO(random-liu): [P0] Enqueue the event and retry.
 			if !errdefs.IsNotFound(err) {
 				logrus.WithError(err).Errorf("failed to stop sandbox %q", e.ContainerID)

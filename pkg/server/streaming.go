@@ -22,12 +22,15 @@ import (
 	"math"
 	"net"
 
+	"github.com/containerd/containerd/namespaces"
 	"golang.org/x/net/context"
 	k8snet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubernetes/pkg/kubelet/server/streaming"
 	"k8s.io/utils/exec"
+
+	"github.com/containerd/cri-containerd/pkg/constants"
 )
 
 func newStreamServer(c *criContainerdService, addr, port string) (streaming.Server, error) {
@@ -56,7 +59,8 @@ func newStreamRuntime(c *criContainerdService) streaming.Runtime {
 // returns non-zero exit code.
 func (s *streamRuntime) Exec(containerID string, cmd []string, stdin io.Reader, stdout, stderr io.WriteCloser,
 	tty bool, resize <-chan remotecommand.TerminalSize) error {
-	exitCode, err := s.c.execInContainer(context.Background(), containerID, execOptions{
+	ctx := namespaces.WithNamespace(context.Background(), constants.K8sContainerdNamespace)
+	exitCode, err := s.c.execInContainer(ctx, containerID, execOptions{
 		cmd:    cmd,
 		stdin:  stdin,
 		stdout: stdout,
@@ -78,7 +82,8 @@ func (s *streamRuntime) Exec(containerID string, cmd []string, stdin io.Reader, 
 
 func (s *streamRuntime) Attach(containerID string, in io.Reader, out, err io.WriteCloser, tty bool,
 	resize <-chan remotecommand.TerminalSize) error {
-	return s.c.attachContainer(context.Background(), containerID, in, out, err, tty, resize)
+	ctx := namespaces.WithNamespace(context.Background(), constants.K8sContainerdNamespace)
+	return s.c.attachContainer(ctx, containerID, in, out, err, tty, resize)
 }
 
 func (s *streamRuntime) PortForward(podSandboxID string, port int32, stream io.ReadWriteCloser) error {
