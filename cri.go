@@ -20,6 +20,7 @@ import (
 	"flag"
 	"path/filepath"
 
+	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/plugin"
@@ -28,6 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	criconfig "github.com/containerd/cri-containerd/pkg/config"
+	"github.com/containerd/cri-containerd/pkg/constants"
 	"github.com/containerd/cri-containerd/pkg/server"
 )
 
@@ -83,7 +85,23 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 	// Use a goroutine to initialize cri service. The reason is that currently
 	// cri service requires containerd to be initialize.
 	go func() {
-		if err := s.Run(); err != nil {
+		// Connect containerd service here, to get rid of the containerd dependency.
+		// in `NewCRIContainerdService`.
+		log.G(ctx).Info("Connect containerd service")
+		// TODO(random-liu): Create client in `initCRIService` and pass it to
+		// `NewCRIContainerdService` (containerd/containerd#2183)
+		ctrdServices, err := containerd.NewLocalServices(
+			ic.Address,
+			constants.K8sContainerdNamespace,
+		)
+		if err != nil {
+			log.G(ctx).WithError(err).Fatal("Failed to create direct containerd services")
+		}
+		client, err := containerd.NewWithServices(ctrdServices)
+		if err != nil {
+			log.G(ctx).WithError(err).Fatal("Failed to initialize containerd client")
+		}
+		if err := s.Run(client); err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to run CRI service")
 		}
 		// TODO(random-liu): Whether and how we can stop containerd.

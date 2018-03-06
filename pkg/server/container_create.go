@@ -46,6 +46,7 @@ import (
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 
 	"github.com/containerd/cri-containerd/pkg/annotations"
+	"github.com/containerd/cri-containerd/pkg/constants"
 	customopts "github.com/containerd/cri-containerd/pkg/containerd/opts"
 	ctrdutil "github.com/containerd/cri-containerd/pkg/containerd/util"
 	cio "github.com/containerd/cri-containerd/pkg/server/io"
@@ -730,7 +731,7 @@ func setOCINamespaces(g *generate.Generator, namespaces *runtime.NamespaceOption
 // defaultRuntimeSpec returns a default runtime spec used in cri-containerd.
 func defaultRuntimeSpec(id string) (*runtimespec.Spec, error) {
 	// GenerateSpec needs namespace.
-	ctx := namespaces.WithNamespace(context.Background(), k8sContainerdNamespace)
+	ctx := namespaces.WithNamespace(context.Background(), constants.K8sContainerdNamespace)
 	spec, err := oci.GenerateSpec(ctx, nil, &containers.Container{ID: id})
 	if err != nil {
 		return nil, err
