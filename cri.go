@@ -89,6 +89,10 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 	}
 	db := meta.(*metadata.DB)
 	contentStore := db.ContentStore()
+	snapshotter := db.Snapshotter(pluginConfig.Snapshotter)
+	if snapshotter == nil {
+		return nil, errors.Errorf("snapshotter %q not loaded", pluginConfig.Snapshotter)
+	}
 
 	// Use a goroutine to initialize cri service. The reason is that currently
 	// cri service requires containerd to be initialize.
@@ -101,9 +105,10 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		ctrdServices, err := containerd.NewLocalServices(
 			ic.Address,
 			constants.K8sContainerdNamespace,
-			// TODO(random-liu): Publish event from content store.
+			// TODO(random-liu): Publish event from internal services.
 			// (containerd/containerd#2183)
-			contentStore,
+			containerd.WithContentStoreService(contentStore),
+			containerd.WithSnapshotterService(pluginConfig.Snapshotter, snapshotter),
 		)
 		if err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to create direct containerd services")
