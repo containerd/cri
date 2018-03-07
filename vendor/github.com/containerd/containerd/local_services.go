@@ -26,7 +26,6 @@ import (
 	introspectionapi "github.com/containerd/containerd/api/services/introspection/v1"
 	leasesapi "github.com/containerd/containerd/api/services/leases/v1"
 	namespacesapi "github.com/containerd/containerd/api/services/namespaces/v1"
-	snapshotsapi "github.com/containerd/containerd/api/services/snapshots/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	versionservice "github.com/containerd/containerd/api/services/version/v1"
 	"github.com/containerd/containerd/containers"
@@ -45,6 +44,27 @@ type localServices struct {
 	conn         *grpc.ClientConn
 	connector    func() (*grpc.ClientConn, error)
 	contentStore content.Store
+	snapshotters map[string]snapshots.Snapshotter
+}
+
+// ServicesOpt allows callers to set options on the services
+type ServicesOpt func(c *localServices)
+
+// WithContentStoreService sets the content store service.
+func WithContentStoreService(contentStore content.Store) ServicesOpt {
+	return func(l *localServices) {
+		l.contentStore = contentStore
+	}
+}
+
+// WithSnapshotterService sets the snapshotter service.
+func WithSnapshotterService(name string, snapshotter snapshots.Snapshotter) ServicesOpt {
+	return func(l *localServices) {
+		if l.snapshotters == nil {
+			l.snapshotters = make(map[string]snapshots.Snapshotter)
+		}
+		l.snapshotters[name] = snapshotter
+	}
 }
 
 // NewLocalServices returns a new services using the passed-in
@@ -53,8 +73,9 @@ type localServices struct {
 // TODO(random-liu): Change all services to local services and remove
 // the grpc connection.
 // TODO(random-liu): Design the arg list better, probably
-// need some option functions. (containerd/containerd#2183)
-func NewLocalServices(address, ns string, contentStore content.Store) (Services, error) {
+// need some option functions. Potentially consolidate with
+// client.New. (containerd/containerd#2183)
+func NewLocalServices(address, ns string, opts ...ServicesOpt) (Services, error) {
 	gopts := []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithInsecure(),
@@ -81,11 +102,14 @@ func NewLocalServices(address, ns string, contentStore content.Store) (Services,
 	if err != nil {
 		return nil, err
 	}
-	return &localServices{
-		conn:         conn,
-		connector:    connector,
-		contentStore: contentStore,
-	}, nil
+	services := &localServices{
+		conn:      conn,
+		connector: connector,
+	}
+	for _, o := range opts {
+		o(services)
+	}
+	return services, nil
 }
 
 // Reconnect re-establishes the GRPC connection to the containerd daemon
@@ -124,7 +148,7 @@ func (l *localServices) ContentStore() content.Store {
 
 // SnapshotService returns the underlying snapshotter for the provided snapshotter name
 func (l *localServices) SnapshotService(snapshotterName string) snapshots.Snapshotter {
-	return NewSnapshotterFromClient(snapshotsapi.NewSnapshotsClient(l.conn), snapshotterName)
+	return l.snapshotters[snapshotterName]
 }
 
 // TaskService returns the underlying TasksClient
