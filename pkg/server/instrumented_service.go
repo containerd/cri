@@ -19,15 +19,17 @@ package server
 import (
 	"errors"
 
+	"github.com/containerd/containerd/namespaces"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 
 	api "github.com/containerd/cri-containerd/pkg/api/v1"
+	"github.com/containerd/cri-containerd/pkg/constants"
 	"github.com/containerd/cri-containerd/pkg/log"
 )
 
-// instrumentedService wraps service and logs each operation.
+// instrumentedService wraps service with containerd namespace and logs.
 type instrumentedService struct {
 	c *criContainerdService
 }
@@ -59,6 +61,7 @@ func (in *instrumentedService) RunPodSandbox(ctx context.Context, r *runtime.Run
 			logrus.Infof("RunPodSandbox for %+v returns sandbox id %q", r.GetConfig().GetMetadata(), res.GetPodSandboxId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.RunPodSandbox(ctx, r)
 }
 
@@ -74,6 +77,7 @@ func (in *instrumentedService) ListPodSandbox(ctx context.Context, r *runtime.Li
 			log.Tracef("ListPodSandbox returns pod sandboxes %+v", res.GetItems())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ListPodSandbox(ctx, r)
 }
 
@@ -89,6 +93,7 @@ func (in *instrumentedService) PodSandboxStatus(ctx context.Context, r *runtime.
 			log.Tracef("PodSandboxStatus for %q returns status %+v", r.GetPodSandboxId(), res.GetStatus())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.PodSandboxStatus(ctx, r)
 }
 
@@ -104,6 +109,7 @@ func (in *instrumentedService) StopPodSandbox(ctx context.Context, r *runtime.St
 			logrus.Infof("StopPodSandbox for %q returns successfully", r.GetPodSandboxId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.StopPodSandbox(ctx, r)
 }
 
@@ -119,6 +125,7 @@ func (in *instrumentedService) RemovePodSandbox(ctx context.Context, r *runtime.
 			logrus.Infof("RemovePodSandbox %q returns successfully", r.GetPodSandboxId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.RemovePodSandbox(ctx, r)
 }
 
@@ -134,6 +141,7 @@ func (in *instrumentedService) PortForward(ctx context.Context, r *runtime.PortF
 			logrus.Infof("Portforward for %q returns URL %q", r.GetPodSandboxId(), res.GetUrl())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.PortForward(ctx, r)
 }
 
@@ -152,6 +160,7 @@ func (in *instrumentedService) CreateContainer(ctx context.Context, r *runtime.C
 				r.GetPodSandboxId(), r.GetConfig().GetMetadata(), res.GetContainerId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.CreateContainer(ctx, r)
 }
 
@@ -167,6 +176,7 @@ func (in *instrumentedService) StartContainer(ctx context.Context, r *runtime.St
 			logrus.Infof("StartContainer for %q returns successfully", r.GetContainerId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.StartContainer(ctx, r)
 }
 
@@ -183,6 +193,7 @@ func (in *instrumentedService) ListContainers(ctx context.Context, r *runtime.Li
 				r.GetFilter(), res.GetContainers())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ListContainers(ctx, r)
 }
 
@@ -198,6 +209,7 @@ func (in *instrumentedService) ContainerStatus(ctx context.Context, r *runtime.C
 			log.Tracef("ContainerStatus for %q returns status %+v", r.GetContainerId(), res.GetStatus())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ContainerStatus(ctx, r)
 }
 
@@ -213,6 +225,7 @@ func (in *instrumentedService) StopContainer(ctx context.Context, r *runtime.Sto
 			logrus.Infof("StopContainer for %q returns successfully", r.GetContainerId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.StopContainer(ctx, r)
 }
 
@@ -228,6 +241,7 @@ func (in *instrumentedService) RemoveContainer(ctx context.Context, r *runtime.R
 			logrus.Infof("RemoveContainer for %q returns successfully", r.GetContainerId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.RemoveContainer(ctx, r)
 }
 
@@ -245,6 +259,7 @@ func (in *instrumentedService) ExecSync(ctx context.Context, r *runtime.ExecSync
 				res.GetStdout(), res.GetStderr())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ExecSync(ctx, r)
 }
 
@@ -261,6 +276,7 @@ func (in *instrumentedService) Exec(ctx context.Context, r *runtime.ExecRequest)
 			logrus.Infof("Exec for %q returns URL %q", r.GetContainerId(), res.GetUrl())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.Exec(ctx, r)
 }
 
@@ -276,6 +292,7 @@ func (in *instrumentedService) Attach(ctx context.Context, r *runtime.AttachRequ
 			logrus.Infof("Attach for %q returns URL %q", r.GetContainerId(), res.Url)
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.Attach(ctx, r)
 }
 
@@ -291,6 +308,7 @@ func (in *instrumentedService) UpdateContainerResources(ctx context.Context, r *
 			logrus.Infof("UpdateContainerResources for %q returns successfully", r.GetContainerId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.UpdateContainerResources(ctx, r)
 }
 
@@ -307,6 +325,7 @@ func (in *instrumentedService) PullImage(ctx context.Context, r *runtime.PullIma
 				r.GetImage().GetImage(), res.GetImageRef())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.PullImage(ctx, r)
 }
 
@@ -323,6 +342,7 @@ func (in *instrumentedService) ListImages(ctx context.Context, r *runtime.ListIm
 				r.GetFilter(), res.GetImages())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ListImages(ctx, r)
 }
 
@@ -339,6 +359,7 @@ func (in *instrumentedService) ImageStatus(ctx context.Context, r *runtime.Image
 				r.GetImage().GetImage(), res.GetImage())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ImageStatus(ctx, r)
 }
 
@@ -354,6 +375,7 @@ func (in *instrumentedService) RemoveImage(ctx context.Context, r *runtime.Remov
 			logrus.Infof("RemoveImage %q returns successfully", r.GetImage().GetImage())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.RemoveImage(ctx, r)
 }
 
@@ -369,6 +391,7 @@ func (in *instrumentedService) ImageFsInfo(ctx context.Context, r *runtime.Image
 			logrus.Debugf("ImageFsInfo returns filesystem info %+v", res.ImageFilesystems)
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ImageFsInfo(ctx, r)
 }
 
@@ -384,6 +407,7 @@ func (in *instrumentedService) ContainerStats(ctx context.Context, r *runtime.Co
 			logrus.Debugf("ContainerStats for %q returns stats %+v", r.GetContainerId(), res.GetStats())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ContainerStats(ctx, r)
 }
 
@@ -399,6 +423,7 @@ func (in *instrumentedService) ListContainerStats(ctx context.Context, r *runtim
 			log.Tracef("ListContainerStats returns stats %+v", res.GetStats())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ListContainerStats(ctx, r)
 }
 
@@ -414,6 +439,7 @@ func (in *instrumentedService) Status(ctx context.Context, r *runtime.StatusRequ
 			log.Tracef("Status returns status %+v", res.GetStatus())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.Status(ctx, r)
 }
 
@@ -429,6 +455,7 @@ func (in *instrumentedService) Version(ctx context.Context, r *runtime.VersionRe
 			log.Tracef("Version returns %+v", res)
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.Version(ctx, r)
 }
 
@@ -444,6 +471,7 @@ func (in *instrumentedService) UpdateRuntimeConfig(ctx context.Context, r *runti
 			logrus.Debug("UpdateRuntimeConfig returns returns successfully")
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.UpdateRuntimeConfig(ctx, r)
 }
 
@@ -459,6 +487,7 @@ func (in *instrumentedService) LoadImage(ctx context.Context, r *api.LoadImageRe
 			logrus.Debugf("LoadImage returns images %+v", res.GetImages())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.LoadImage(ctx, r)
 }
 
@@ -474,5 +503,6 @@ func (in *instrumentedService) ReopenContainerLog(ctx context.Context, r *runtim
 			logrus.Debugf("ReopenContainerLog for %q returns successfully", r.GetContainerId())
 		}
 	}()
+	ctx = namespaces.WithNamespace(ctx, constants.K8sContainerdNamespace)
 	return in.c.ReopenContainerLog(ctx, r)
 }

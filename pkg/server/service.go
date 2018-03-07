@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/plugin"
 	"github.com/cri-o/ocicni/pkg/ocicni"
 	runcapparmor "github.com/opencontainers/runc/libcontainer/apparmor"
@@ -37,6 +38,7 @@ import (
 	api "github.com/containerd/cri-containerd/pkg/api/v1"
 	"github.com/containerd/cri-containerd/pkg/atomic"
 	criconfig "github.com/containerd/cri-containerd/pkg/config"
+	"github.com/containerd/cri-containerd/pkg/constants"
 	osinterface "github.com/containerd/cri-containerd/pkg/os"
 	"github.com/containerd/cri-containerd/pkg/registrar"
 	containerstore "github.com/containerd/cri-containerd/pkg/store/container"
@@ -44,9 +46,6 @@ import (
 	sandboxstore "github.com/containerd/cri-containerd/pkg/store/sandbox"
 	snapshotstore "github.com/containerd/cri-containerd/pkg/store/snapshot"
 )
-
-// k8sContainerdNamespace is the namespace we use to connect containerd.
-const k8sContainerdNamespace = "k8s.io"
 
 // grpcServices are all the grpc services provided by cri containerd.
 type grpcServices interface {
@@ -57,7 +56,7 @@ type grpcServices interface {
 
 // CRIContainerdService is the interface implement CRI remote service server.
 type CRIContainerdService interface {
-	Run() error
+	Run(*containerd.Client) error
 	// io.Closer is used by containerd to gracefully stop cri service.
 	io.Closer
 	plugin.Service
@@ -158,24 +157,16 @@ func (c *criContainerdService) Register(s *grpc.Server) error {
 }
 
 // Run starts the cri-containerd service.
-func (c *criContainerdService) Run() error {
+func (c *criContainerdService) Run(client *containerd.Client) error {
 	logrus.Info("Start cri-containerd service")
-
-	// Connect containerd service here, to get rid of the containerd dependency
-	// in `NewCRIContainerdService`. This is required for plugin mode bootstrapping.
-	logrus.Info("Connect containerd service")
-	client, err := containerd.New(c.config.ContainerdEndpoint, containerd.WithDefaultNamespace(k8sContainerdNamespace))
-	if err != nil {
-		return fmt.Errorf("failed to initialize containerd client with endpoint %q: %v",
-			c.config.ContainerdEndpoint, err)
-	}
 	c.client = client
 
 	logrus.Info("Start subscribing containerd event")
 	c.eventMonitor.subscribe(c.client)
 
 	logrus.Infof("Start recovering state")
-	if err := c.recover(context.Background()); err != nil {
+	ctx := namespaces.WithNamespace(context.Background(), constants.K8sContainerdNamespace)
+	if err := c.recover(ctx); err != nil {
 		return fmt.Errorf("failed to recover state: %v", err)
 	}
 
