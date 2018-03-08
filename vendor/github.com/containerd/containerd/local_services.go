@@ -50,20 +50,20 @@ type localServices struct {
 // ServicesOpt allows callers to set options on the services
 type ServicesOpt func(c *localServices)
 
-// WithContentStoreService sets the content store service.
-func WithContentStoreService(contentStore content.Store) ServicesOpt {
+// WithContentStore sets the content store.
+func WithContentStore(contentStore content.Store) ServicesOpt {
 	return func(l *localServices) {
 		l.contentStore = contentStore
 	}
 }
 
-// WithSnapshotterService sets the snapshotter service.
-func WithSnapshotterService(name string, snapshotter snapshots.Snapshotter) ServicesOpt {
+// WithSnapshotters sets the snapshotters.
+func WithSnapshotters(snapshotters map[string]snapshots.Snapshotter) ServicesOpt {
 	return func(l *localServices) {
-		if l.snapshotters == nil {
-			l.snapshotters = make(map[string]snapshots.Snapshotter)
+		l.snapshotters = make(map[string]snapshots.Snapshotter)
+		for n, sn := range snapshotters {
+			l.snapshotters[n] = sn
 		}
-		l.snapshotters[name] = snapshotter
 	}
 }
 
