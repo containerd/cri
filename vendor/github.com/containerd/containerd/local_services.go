@@ -19,7 +19,6 @@ package containerd
 import (
 	"time"
 
-	containersapi "github.com/containerd/containerd/api/services/containers/v1"
 	diffapi "github.com/containerd/containerd/api/services/diff/v1"
 	eventsapi "github.com/containerd/containerd/api/services/events/v1"
 	introspectionapi "github.com/containerd/containerd/api/services/introspection/v1"
@@ -40,11 +39,12 @@ import (
 
 // localServices is an implementation of Services through local function call.
 type localServices struct {
-	conn         *grpc.ClientConn
-	connector    func() (*grpc.ClientConn, error)
-	contentStore content.Store
-	snapshotters map[string]snapshots.Snapshotter
-	imageStore   images.Store
+	conn           *grpc.ClientConn
+	connector      func() (*grpc.ClientConn, error)
+	contentStore   content.Store
+	snapshotters   map[string]snapshots.Snapshotter
+	imageStore     images.Store
+	containerStore containers.Store
 }
 
 // ServicesOpt allows callers to set options on the services
@@ -71,6 +71,13 @@ func WithSnapshotters(snapshotters map[string]snapshots.Snapshotter) ServicesOpt
 		for n, sn := range snapshotters {
 			l.snapshotters[n] = sn
 		}
+	}
+}
+
+// WithContainerStore sets the container store.
+func WithContainerStore(containerStore containers.Store) ServicesOpt {
+	return func(l *localServices) {
+		l.containerStore = containerStore
 	}
 }
 
@@ -145,7 +152,7 @@ func (l *localServices) NamespaceService() namespaces.Store {
 
 // ContainerService returns the underlying container Store
 func (l *localServices) ContainerService() containers.Store {
-	return NewRemoteContainerStore(containersapi.NewContainersClient(l.conn))
+	return l.containerStore
 }
 
 // ContentStore returns the underlying content Store

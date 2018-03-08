@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
@@ -80,41 +81,24 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		return nil, errors.Wrap(err, "failed to create CRI service")
 	}
 
-	// TODO(random-liu): Move following logic into a function. (containerd/containerd#2183)
-	plugins, err := ic.GetByType(plugin.ServicePlugin)
+	ss, err := getServices(ic)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get service plugin")
+		return nil, errors.Wrap(err, "failed to get services")
 	}
-
-	csp := plugins[services.ContentService]
-	if csp == nil {
-		return nil, errors.New("content service not found")
+	servicesOpts := []containerd.ServicesOpt{
+		containerd.WithContentStore(
+			ss[services.ContentService].(content.Store),
+		),
+		containerd.WithImageStore(
+			ss[services.ImagesService].(images.Store),
+		),
+		containerd.WithSnapshotters(
+			ss[services.SnapshotsService].(map[string]snapshots.Snapshotter),
+		),
+		containerd.WithContainerStore(
+			ss[services.ContainersService].(containers.Store),
+		),
 	}
-	csi, err := csp.Instance()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get content store instance")
-	}
-	contentStore := csi.(content.Store)
-
-	isp := plugins[services.ImagesService]
-	if isp == nil {
-		return nil, errors.New("images service not found")
-	}
-	isi, err := isp.Instance()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get image store instance")
-	}
-	imageStore := isi.(images.Store)
-
-	ssp := plugins[services.SnapshotsService]
-	if ssp == nil {
-		return nil, errors.New("snapshots service not found")
-	}
-	ssi, err := ssp.Instance()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get snapshotters instance")
-	}
-	snapshotters := ssi.(map[string]snapshots.Snapshotter)
 
 	// Use a goroutine to initialize cri service. The reason is that currently
 	// cri service requires containerd to be initialize.
@@ -127,11 +111,7 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		ctrdServices, err := containerd.NewLocalServices(
 			ic.Address,
 			constants.K8sContainerdNamespace,
-			// TODO(random-liu): Publish event from internal services.
-			// (containerd/containerd#2183)
-			containerd.WithContentStore(contentStore),
-			containerd.WithImageStore(imageStore),
-			containerd.WithSnapshotters(snapshotters),
+			servicesOpts...,
 		)
 		if err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to create direct containerd services")
@@ -148,6 +128,36 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		// TODO(random-liu): Whether and how we can stop containerd.
 	}()
 	return s, nil
+}
+
+// getServices get service instances from plugin context.
+func getServices(ic *plugin.InitContext) (map[string]interface{}, error) {
+	plugins, err := ic.GetByType(plugin.ServicePlugin)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get service plugin")
+	}
+
+	ss := make(map[string]interface{})
+	for _, s := range []string{
+		services.ContentService,
+		services.ImagesService,
+		services.SnapshotsService,
+		services.ContainersService,
+	} {
+		p := plugins[s]
+		if p == nil {
+			return nil, errors.Errorf("service %q not found", s)
+		}
+		i, err := p.Instance()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get instance of service %q", s)
+		}
+		if i == nil {
+			return nil, errors.Errorf("instance of service %q not found", s)
+		}
+		ss[s] = i
+	}
+	return ss, nil
 }
 
 // Set glog level.

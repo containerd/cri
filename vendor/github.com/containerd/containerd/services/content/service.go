@@ -52,7 +52,7 @@ var _ api.ContentServer = &service{}
 func init() {
 	plugin.Register(&plugin.Registration{
 		Type: plugin.GRPCPlugin,
-		ID:   services.ContentService,
+		ID:   services.ContentService + "-grpc",
 		Requires: []plugin.Type{
 			plugin.ServicePlugin,
 		},

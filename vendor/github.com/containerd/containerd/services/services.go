@@ -23,4 +23,6 @@ const (
 	SnapshotsService = "snapshots"
 	// ImagesService is id of images service.
 	ImagesService = "images"
+	// ContainersService is id of containers service.
+	ContainersService = "containers"
 )
