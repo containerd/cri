@@ -22,6 +22,7 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/plugin"
@@ -95,6 +96,16 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 	}
 	contentStore := csi.(content.Store)
 
+	isp := plugins[services.ImagesService]
+	if isp == nil {
+		return nil, errors.New("images service not found")
+	}
+	isi, err := isp.Instance()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get image store instance")
+	}
+	imageStore := isi.(images.Store)
+
 	ssp := plugins[services.SnapshotsService]
 	if ssp == nil {
 		return nil, errors.New("snapshots service not found")
@@ -119,6 +130,7 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 			// TODO(random-liu): Publish event from internal services.
 			// (containerd/containerd#2183)
 			containerd.WithContentStore(contentStore),
+			containerd.WithImageStore(imageStore),
 			containerd.WithSnapshotters(snapshotters),
 		)
 		if err != nil {

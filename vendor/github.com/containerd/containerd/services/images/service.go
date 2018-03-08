@@ -17,18 +17,14 @@
 package images
 
 import (
-	gocontext "context"
-
-	eventstypes "github.com/containerd/containerd/api/events"
 	imagesapi "github.com/containerd/containerd/api/services/images/v1"
 	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/events"
-	"github.com/containerd/containerd/gc"
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
-	"github.com/containerd/containerd/metadata"
 	"github.com/containerd/containerd/plugin"
+	"github.com/containerd/containerd/services"
 	ptypes "github.com/gogo/protobuf/types"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -38,43 +34,35 @@ import (
 func init() {
 	plugin.Register(&plugin.Registration{
 		Type: plugin.GRPCPlugin,
-		ID:   "images",
+		ID:   services.ImagesService,
 		Requires: []plugin.Type{
-			plugin.MetadataPlugin,
-			plugin.GCPlugin,
+			plugin.ServicePlugin,
 		},
 		InitFn: func(ic *plugin.InitContext) (interface{}, error) {
-			m, err := ic.Get(plugin.MetadataPlugin)
+			plugins, err := ic.GetByType(plugin.ServicePlugin)
 			if err != nil {
 				return nil, err
 			}
-			g, err := ic.Get(plugin.GCPlugin)
+			p, ok := plugins[services.ImagesService]
+			if !ok {
+				return nil, errors.New("images service not found")
+			}
+			is, err := p.Instance()
 			if err != nil {
 				return nil, err
 			}
-
-			return NewService(metadata.NewImageStore(m.(*metadata.DB)), ic.Events, g.(gcScheduler)), nil
+			return newService(is.(images.Store)), nil
 		},
 	})
 }
 
-type gcScheduler interface {
-	ScheduleAndWait(gocontext.Context) (gc.Stats, error)
-}
-
 type service struct {
-	store     images.Store
-	gc        gcScheduler
-	publisher events.Publisher
+	store images.Store
 }
 
-// NewService returns the GRPC image server
-func NewService(is images.Store, publisher events.Publisher, gc gcScheduler) imagesapi.ImagesServer {
-	return &service{
-		store:     is,
-		gc:        gc,
-		publisher: publisher,
-	}
+// newService returns the GRPC image server
+func newService(is images.Store) imagesapi.ImagesServer {
+	return &service{store: is}
 }
 
 func (s *service) Register(server *grpc.Server) error {
@@ -122,13 +110,6 @@ func (s *service) Create(ctx context.Context, req *imagesapi.CreateImageRequest)
 
 	resp.Image = imageToProto(&created)
 
-	if err := s.publisher.Publish(ctx, "/images/create", &eventstypes.ImageCreate{
-		Name:   resp.Image.Name,
-		Labels: resp.Image.Labels,
-	}); err != nil {
-		return nil, err
-	}
-
 	return &resp, nil
 
 }
@@ -157,33 +138,19 @@ func (s *service) Update(ctx context.Context, req *imagesapi.UpdateImageRequest)
 
 	resp.Image = imageToProto(&updated)
 
-	if err := s.publisher.Publish(ctx, "/images/update", &eventstypes.ImageUpdate{
-		Name:   resp.Image.Name,
-		Labels: resp.Image.Labels,
-	}); err != nil {
-		return nil, err
-	}
-
 	return &resp, nil
 }
 
 func (s *service) Delete(ctx context.Context, req *imagesapi.DeleteImageRequest) (*ptypes.Empty, error) {
 	log.G(ctx).WithField("name", req.Name).Debugf("delete image")
 
-	if err := s.store.Delete(ctx, req.Name); err != nil {
-		return nil, errdefs.ToGRPC(err)
-	}
-
-	if err := s.publisher.Publish(ctx, "/images/delete", &eventstypes.ImageDelete{
-		Name: req.Name,
-	}); err != nil {
-		return nil, err
-	}
-
+	var opts []images.DeleteOpt
 	if req.Sync {
-		if _, err := s.gc.ScheduleAndWait(ctx); err != nil {
-			return nil, err
-		}
+		opts = append(opts, images.SynchronousDelete())
+	}
+
+	if err := s.store.Delete(ctx, req.Name, opts...); err != nil {
+		return nil, errdefs.ToGRPC(err)
 	}
 
 	return &ptypes.Empty{}, nil

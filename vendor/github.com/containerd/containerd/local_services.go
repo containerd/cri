@@ -22,7 +22,6 @@ import (
 	containersapi "github.com/containerd/containerd/api/services/containers/v1"
 	diffapi "github.com/containerd/containerd/api/services/diff/v1"
 	eventsapi "github.com/containerd/containerd/api/services/events/v1"
-	imagesapi "github.com/containerd/containerd/api/services/images/v1"
 	introspectionapi "github.com/containerd/containerd/api/services/introspection/v1"
 	leasesapi "github.com/containerd/containerd/api/services/leases/v1"
 	namespacesapi "github.com/containerd/containerd/api/services/namespaces/v1"
@@ -45,6 +44,7 @@ type localServices struct {
 	connector    func() (*grpc.ClientConn, error)
 	contentStore content.Store
 	snapshotters map[string]snapshots.Snapshotter
+	imageStore   images.Store
 }
 
 // ServicesOpt allows callers to set options on the services
@@ -54,6 +54,13 @@ type ServicesOpt func(c *localServices)
 func WithContentStore(contentStore content.Store) ServicesOpt {
 	return func(l *localServices) {
 		l.contentStore = contentStore
+	}
+}
+
+// WithImageStore sets the image store.
+func WithImageStore(imageStore images.Store) ServicesOpt {
+	return func(l *localServices) {
+		l.imageStore = imageStore
 	}
 }
 
@@ -158,7 +165,7 @@ func (l *localServices) TaskService() tasks.TasksClient {
 
 // ImageService returns the underlying image Store
 func (l *localServices) ImageService() images.Store {
-	return NewImageStoreFromClient(imagesapi.NewImagesClient(l.conn))
+	return l.imageStore
 }
 
 // DiffService returns the underlying Differ
