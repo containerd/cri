@@ -52,7 +52,7 @@ var _ api.ContentServer = &service{}
 func init() {
 	plugin.Register(&plugin.Registration{
 		Type: plugin.GRPCPlugin,
-		ID:   services.ContentService + "-grpc",
+		ID:   "content",
 		Requires: []plugin.Type{
 			plugin.ServicePlugin,
 		},
@@ -69,15 +69,14 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			s, err := newService(cs.(content.Store))
-			return s, err
+			return newService(cs.(content.Store)), nil
 		},
 	})
 }
 
 // newService returns the content GRPC server
-func newService(cs content.Store) (api.ContentServer, error) {
-	return &service{store: cs}, nil
+func newService(cs content.Store) api.ContentServer {
+	return &service{store: cs}
 }
 
 func (s *service) Register(server *grpc.Server) error {

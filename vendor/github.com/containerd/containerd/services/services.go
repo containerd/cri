@@ -18,11 +18,13 @@ package services
 
 const (
 	// ContentService is id of content service.
-	ContentService = "content"
+	ContentService = "content-service"
 	// SnapshotsService is id of snapshots service.
-	SnapshotsService = "snapshots"
+	SnapshotsService = "snapshots-service"
 	// ImagesService is id of images service.
-	ImagesService = "images"
+	ImagesService = "images-service"
 	// ContainersService is id of containers service.
-	ContainersService = "containers"
+	ContainersService = "containers-service"
+	// TasksService is id of tasks service.
+	TasksService = "tasks-service"
 )

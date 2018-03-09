@@ -34,7 +34,7 @@ import (
 func init() {
 	plugin.Register(&plugin.Registration{
 		Type: plugin.GRPCPlugin,
-		ID:   services.ImagesService + "-grpc",
+		ID:   "images",
 		Requires: []plugin.Type{
 			plugin.ServicePlugin,
 		},

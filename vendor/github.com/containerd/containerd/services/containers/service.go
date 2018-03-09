@@ -33,7 +33,7 @@ import (
 func init() {
 	plugin.Register(&plugin.Registration{
 		Type: plugin.GRPCPlugin,
-		ID:   services.ContainersService + "-grpc",
+		ID:   "containers",
 		Requires: []plugin.Type{
 			plugin.ServicePlugin,
 		},

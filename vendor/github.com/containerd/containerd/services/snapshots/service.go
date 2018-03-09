@@ -36,7 +36,7 @@ import (
 func init() {
 	plugin.Register(&plugin.Registration{
 		Type: plugin.GRPCPlugin,
-		ID:   services.SnapshotsService + "-grpc",
+		ID:   "snapshots",
 		Requires: []plugin.Type{
 			plugin.ServicePlugin,
 		},

@@ -45,6 +45,7 @@ type localServices struct {
 	snapshotters   map[string]snapshots.Snapshotter
 	imageStore     images.Store
 	containerStore containers.Store
+	taskService    tasks.TasksClient
 }
 
 // ServicesOpt allows callers to set options on the services
@@ -78,6 +79,13 @@ func WithSnapshotters(snapshotters map[string]snapshots.Snapshotter) ServicesOpt
 func WithContainerStore(containerStore containers.Store) ServicesOpt {
 	return func(l *localServices) {
 		l.containerStore = containerStore
+	}
+}
+
+// WithTaskService sets the task service.
+func WithTaskService(taskService tasks.TasksClient) ServicesOpt {
+	return func(l *localServices) {
+		l.taskService = taskService
 	}
 }
 
@@ -167,7 +175,7 @@ func (l *localServices) SnapshotService(snapshotterName string) snapshots.Snapsh
 
 // TaskService returns the underlying TasksClient
 func (l *localServices) TaskService() tasks.TasksClient {
-	return tasks.NewTasksClient(l.conn)
+	return l.taskService
 }
 
 // ImageService returns the underlying image Store
