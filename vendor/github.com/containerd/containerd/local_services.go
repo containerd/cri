@@ -20,7 +20,6 @@ import (
 	"time"
 
 	diffapi "github.com/containerd/containerd/api/services/diff/v1"
-	eventsapi "github.com/containerd/containerd/api/services/events/v1"
 	introspectionapi "github.com/containerd/containerd/api/services/introspection/v1"
 	leasesapi "github.com/containerd/containerd/api/services/leases/v1"
 	namespacesapi "github.com/containerd/containerd/api/services/namespaces/v1"
@@ -46,6 +45,7 @@ type localServices struct {
 	imageStore     images.Store
 	containerStore containers.Store
 	taskService    tasks.TasksClient
+	eventService   EventService
 }
 
 // ServicesOpt allows callers to set options on the services
@@ -86,6 +86,13 @@ func WithContainerStore(containerStore containers.Store) ServicesOpt {
 func WithTaskService(taskService tasks.TasksClient) ServicesOpt {
 	return func(l *localServices) {
 		l.taskService = taskService
+	}
+}
+
+// WithEventService sets the event service.
+func WithEventService(eventService EventService) ServicesOpt {
+	return func(l *localServices) {
+		l.eventService = eventService
 	}
 }
 
@@ -203,9 +210,9 @@ func (l *localServices) HealthService() grpc_health_v1.HealthClient {
 	return grpc_health_v1.NewHealthClient(l.conn)
 }
 
-// EventService returns the underlying EventsClient
-func (l *localServices) EventService() eventsapi.EventsClient {
-	return eventsapi.NewEventsClient(l.conn)
+// EventService returns the underlying event service
+func (l *localServices) EventService() EventService {
+	return l.eventService
 }
 
 // VersionService returns the underlying VersionClient

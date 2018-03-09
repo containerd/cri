@@ -24,7 +24,6 @@ import (
 	"runtime"
 	"strconv"
 
-	eventsapi "github.com/containerd/containerd/api/services/events/v1"
 	introspectionapi "github.com/containerd/containerd/api/services/introspection/v1"
 	leasesapi "github.com/containerd/containerd/api/services/leases/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
@@ -32,6 +31,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/events"
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/platforms"
@@ -126,8 +126,8 @@ type Services interface {
 	LeasesService() leasesapi.LeasesClient
 	// HealthService returns the underlying GRPC HealthClient
 	HealthService() grpc_health_v1.HealthClient
-	// EventService returns the underlying EventsClient
-	EventService() eventsapi.EventsClient
+	// EventService returns the underlying events Client
+	EventService() EventService
 	// VersionService returns the underlying VersionClient
 	VersionService() versionservice.VersionClient
 }
@@ -382,43 +382,8 @@ func (c *Client) ListImages(ctx context.Context, filters ...string) ([]Image, er
 //
 // The subscriber can stop receiving events by canceling the provided context.
 // The errs channel will be closed and return a nil error.
-func (c *Client) Subscribe(ctx context.Context, filters ...string) (ch <-chan *eventsapi.Envelope, errs <-chan error) {
-	var (
-		evq  = make(chan *eventsapi.Envelope)
-		errq = make(chan error, 1)
-	)
-
-	errs = errq
-	ch = evq
-
-	session, err := c.EventService().Subscribe(ctx, &eventsapi.SubscribeRequest{
-		Filters: filters,
-	})
-	if err != nil {
-		errq <- err
-		close(errq)
-		return
-	}
-
-	go func() {
-		defer close(errq)
-
-		for {
-			ev, err := session.Recv()
-			if err != nil {
-				errq <- err
-				return
-			}
-
-			select {
-			case evq <- ev:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	return ch, errs
+func (c *Client) Subscribe(ctx context.Context, filters ...string) (ch <-chan *events.Envelope, errs <-chan error) {
+	return c.EventService().Subscribe(ctx, filters...)
 }
 
 // Version of containerd

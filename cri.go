@@ -102,6 +102,7 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		containerd.WithTaskService(
 			ss[services.TasksService].(tasks.TasksClient),
 		),
+		containerd.WithEventService(ic.Events),
 	}
 
 	// Use a goroutine to initialize cri service. The reason is that currently

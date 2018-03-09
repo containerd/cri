@@ -161,9 +161,9 @@ func (g *grpcServices) HealthService() grpc_health_v1.HealthClient {
 	return grpc_health_v1.NewHealthClient(g.conn)
 }
 
-// EventService returns the underlying EventsClient
-func (g *grpcServices) EventService() eventsapi.EventsClient {
-	return eventsapi.NewEventsClient(g.conn)
+// EventService returns the underlying event service
+func (g *grpcServices) EventService() EventService {
+	return NewEventServiceFromClient(eventsapi.NewEventsClient(g.conn))
 }
 
 // VersionService returns the underlying VersionClient
