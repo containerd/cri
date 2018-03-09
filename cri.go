@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/namespaces/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
@@ -102,6 +103,9 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		containerd.WithTaskService(
 			ss[services.TasksService].(tasks.TasksClient),
 		),
+		containerd.WithNamespaceService(
+			ss[services.NamespacesService].(namespaces.NamespacesClient),
+		),
 		containerd.WithEventService(ic.Events),
 	}
 
@@ -149,6 +153,7 @@ func getServices(ic *plugin.InitContext) (map[string]interface{}, error) {
 		services.SnapshotsService,
 		services.ContainersService,
 		services.TasksService,
+		services.NamespacesService,
 	} {
 		p := plugins[s]
 		if p == nil {

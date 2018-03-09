@@ -46,6 +46,7 @@ type localServices struct {
 	containerStore containers.Store
 	taskService    tasks.TasksClient
 	eventService   EventService
+	namespaceStore namespaces.Store
 }
 
 // ServicesOpt allows callers to set options on the services
@@ -93,6 +94,13 @@ func WithTaskService(taskService tasks.TasksClient) ServicesOpt {
 func WithEventService(eventService EventService) ServicesOpt {
 	return func(l *localServices) {
 		l.eventService = eventService
+	}
+}
+
+// WithNamespaceService sets the namespace service.
+func WithNamespaceService(namespaceService namespacesapi.NamespacesClient) ServicesOpt {
+	return func(l *localServices) {
+		l.namespaceStore = NewNamespaceStoreFromClient(namespaceService)
 	}
 }
 
@@ -162,7 +170,7 @@ func (l *localServices) Close() error {
 
 // NamespaceService returns the underlying Namespaces Store
 func (l *localServices) NamespaceService() namespaces.Store {
-	return NewNamespaceStoreFromClient(namespacesapi.NewNamespacesClient(l.conn))
+	return l.namespaceStore
 }
 
 // ContainerService returns the underlying container Store

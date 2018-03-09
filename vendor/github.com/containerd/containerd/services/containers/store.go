@@ -58,24 +58,18 @@ func newContainerStore(db *metadata.DB, publisher events.Publisher) containers.S
 
 func (s *store) Get(ctx context.Context, id string) (containers.Container, error) {
 	var c containers.Container
-	if err := s.withStoreView(ctx, func(ctx context.Context, store containers.Store) (err error) {
+	return c, s.withStoreView(ctx, func(ctx context.Context, store containers.Store) (err error) {
 		c, err = store.Get(ctx, id)
 		return err
-	}); err != nil {
-		return containers.Container{}, err
-	}
-	return c, nil
+	})
 }
 
 func (s *store) List(ctx context.Context, fs ...string) ([]containers.Container, error) {
 	var cs []containers.Container
-	if err := s.withStoreView(ctx, func(ctx context.Context, store containers.Store) (err error) {
+	return cs, s.withStoreView(ctx, func(ctx context.Context, store containers.Store) (err error) {
 		cs, err = store.List(ctx, fs...)
 		return err
-	}); err != nil {
-		return nil, err
-	}
-	return cs, nil
+	})
 }
 
 func (s *store) Create(ctx context.Context, container containers.Container) (containers.Container, error) {
