@@ -83,30 +83,9 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		return nil, errors.Wrap(err, "failed to create CRI service")
 	}
 
-	ss, err := getServices(ic)
+	servicesOpts, err := getServicesOpts(ic)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get services")
-	}
-	servicesOpts := []containerd.ServicesOpt{
-		containerd.WithContentStore(
-			ss[services.ContentService].(content.Store),
-		),
-		containerd.WithImageStore(
-			ss[services.ImagesService].(images.Store),
-		),
-		containerd.WithSnapshotters(
-			ss[services.SnapshotsService].(map[string]snapshots.Snapshotter),
-		),
-		containerd.WithContainerStore(
-			ss[services.ContainersService].(containers.Store),
-		),
-		containerd.WithTaskService(
-			ss[services.TasksService].(tasks.TasksClient),
-		),
-		containerd.WithNamespaceService(
-			ss[services.NamespacesService].(namespaces.NamespacesClient),
-		),
-		containerd.WithEventService(ic.Events),
 	}
 
 	// Use a goroutine to initialize cri service. The reason is that currently
@@ -139,21 +118,35 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 	return s, nil
 }
 
-// getServices get service instances from plugin context.
-func getServices(ic *plugin.InitContext) (map[string]interface{}, error) {
+// getServicesOpts get service options from plugin context.
+func getServicesOpts(ic *plugin.InitContext) ([]containerd.ServicesOpt, error) {
 	plugins, err := ic.GetByType(plugin.ServicePlugin)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get service plugin")
 	}
 
-	ss := make(map[string]interface{})
-	for _, s := range []string{
-		services.ContentService,
-		services.ImagesService,
-		services.SnapshotsService,
-		services.ContainersService,
-		services.TasksService,
-		services.NamespacesService,
+	opts := []containerd.ServicesOpt{
+		containerd.WithEventService(ic.Events),
+	}
+	for s, fn := range map[string]func(interface{}) containerd.ServicesOpt{
+		services.ContentService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithContentStore(s.(content.Store))
+		},
+		services.ImagesService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithImageStore(s.(images.Store))
+		},
+		services.SnapshotsService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithSnapshotters(s.(map[string]snapshots.Snapshotter))
+		},
+		services.ContainersService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithContainerStore(s.(containers.Store))
+		},
+		services.TasksService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithTaskService(s.(tasks.TasksClient))
+		},
+		services.NamespacesService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithNamespaceService(s.(namespaces.NamespacesClient))
+		},
 	} {
 		p := plugins[s]
 		if p == nil {
@@ -166,9 +159,9 @@ func getServices(ic *plugin.InitContext) (map[string]interface{}, error) {
 		if i == nil {
 			return nil, errors.Errorf("instance of service %q not found", s)
 		}
-		ss[s] = i
+		opts = append(opts, fn(i))
 	}
-	return ss, nil
+	return opts, nil
 }
 
 // Set glog level.
