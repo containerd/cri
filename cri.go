@@ -40,9 +40,6 @@ import (
 	"github.com/containerd/cri-containerd/pkg/server"
 )
 
-// criVersion is the CRI version supported by the CRI plugin.
-const criVersion = "v1alpha2"
-
 // TODO(random-liu): Use github.com/pkg/errors for our errors.
 // Register CRI service plugin
 func init() {
@@ -60,7 +57,7 @@ func init() {
 
 func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 	ic.Meta.Platforms = []imagespec.Platform{platforms.DefaultSpec()}
-	ic.Meta.Exports = map[string]string{"CRIVersion": criVersion}
+	ic.Meta.Exports = map[string]string{"CRIVersion": constants.CRIVersion}
 	ctx := ic.Context
 	pluginConfig := ic.Config.(*criconfig.PluginConfig)
 	c := criconfig.Config{
@@ -96,16 +93,10 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		log.G(ctx).Info("Connect containerd service")
 		// TODO(random-liu): Create client in `initCRIService` and pass it to
 		// `NewCRIContainerdService` (containerd/containerd#2183)
-		ctrdServices, err := containerd.NewLocalServices(
+		client, err := containerd.New(
 			ic.Address,
-			constants.K8sContainerdNamespace,
-			servicesOpts...,
-		)
-		if err != nil {
-			log.G(ctx).WithError(err).Fatal("Failed to create direct containerd services")
-		}
-		client, err := containerd.NewWithServices(
-			ctrdServices,
+			containerd.WithDefaultNamespace(constants.K8sContainerdNamespace),
+			containerd.WithServices(servicesOpts...),
 		)
 		if err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to initialize containerd client")

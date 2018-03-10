@@ -34,19 +34,11 @@ const (
 
 // Status returns the status of the runtime.
 func (c *criContainerdService) Status(ctx context.Context, r *runtime.StatusRequest) (*runtime.StatusResponse, error) {
+	// As a containerd plugin, if CRI plugin is serving request,
+	// containerd must be ready.
 	runtimeCondition := &runtime.RuntimeCondition{
 		Type:   runtime.RuntimeReady,
 		Status: true,
-	}
-	serving, err := c.client.IsServing(ctx)
-	if err != nil || !serving {
-		runtimeCondition.Status = false
-		runtimeCondition.Reason = runtimeNotReadyReason
-		if err != nil {
-			runtimeCondition.Message = fmt.Sprintf("Containerd healthcheck returns error: %v", err)
-		} else {
-			runtimeCondition.Message = "Containerd grpc server is not serving"
-		}
 	}
 	networkCondition := &runtime.RuntimeCondition{
 		Type:   runtime.NetworkReady,
