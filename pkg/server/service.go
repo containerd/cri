@@ -56,7 +56,7 @@ type grpcServices interface {
 
 // CRIContainerdService is the interface implement CRI remote service server.
 type CRIContainerdService interface {
-	Run(*containerd.Client) error
+	Run() error
 	// io.Closer is used by containerd to gracefully stop cri service.
 	io.Closer
 	plugin.Service
@@ -103,10 +103,11 @@ type criContainerdService struct {
 }
 
 // NewCRIContainerdService returns a new instance of CRIContainerdService
-func NewCRIContainerdService(config criconfig.Config) (CRIContainerdService, error) {
+func NewCRIContainerdService(config criconfig.Config, client *containerd.Client) (CRIContainerdService, error) {
 	var err error
 	c := &criContainerdService{
 		config:             config,
+		client:             client,
 		apparmorEnabled:    runcapparmor.IsEnabled(),
 		seccompEnabled:     runcseccomp.IsEnabled(),
 		os:                 osinterface.RealOS{},
@@ -157,10 +158,7 @@ func (c *criContainerdService) Register(s *grpc.Server) error {
 }
 
 // Run starts the cri-containerd service.
-func (c *criContainerdService) Run(client *containerd.Client) error {
-	logrus.Info("Start cri-containerd service")
-	c.client = client
-
+func (c *criContainerdService) Run() error {
 	logrus.Info("Start subscribing containerd event")
 	c.eventMonitor.subscribe(c.client)
 

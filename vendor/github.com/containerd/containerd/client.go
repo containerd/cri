@@ -23,15 +23,24 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
+	"time"
 
+	containersapi "github.com/containerd/containerd/api/services/containers/v1"
+	contentapi "github.com/containerd/containerd/api/services/content/v1"
+	diffapi "github.com/containerd/containerd/api/services/diff/v1"
 	eventsapi "github.com/containerd/containerd/api/services/events/v1"
+	imagesapi "github.com/containerd/containerd/api/services/images/v1"
 	introspectionapi "github.com/containerd/containerd/api/services/introspection/v1"
 	leasesapi "github.com/containerd/containerd/api/services/leases/v1"
+	namespacesapi "github.com/containerd/containerd/api/services/namespaces/v1"
+	snapshotsapi "github.com/containerd/containerd/api/services/snapshots/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	versionservice "github.com/containerd/containerd/api/services/version/v1"
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/dialer"
 	"github.com/containerd/containerd/errdefs"
+	"github.com/containerd/containerd/events"
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/platforms"
@@ -68,75 +77,90 @@ func New(address string, opts ...ClientOpt) (*Client, error) {
 			return nil, err
 		}
 	}
-	services, err := newGRPCServices(address, copts)
-	if err != nil {
-		return nil, err
+	c := &Client{
+		runtime: fmt.Sprintf("%s.%s", plugin.RuntimePlugin, runtime.GOOS),
 	}
-	return &Client{
-		Services: services,
-		runtime:  fmt.Sprintf("%s.%s", plugin.RuntimePlugin, runtime.GOOS),
-	}, nil
-}
-
-// NewWithServices returns a new containerd client that communicates with the
-// containerd instance through existing services.
-func NewWithServices(services Services, opts ...ClientOpt) (*Client, error) {
-	return &Client{
-		Services: services,
-		runtime:  fmt.Sprintf("%s.%s", plugin.RuntimePlugin, runtime.GOOS),
-	}, nil
+	if copts.services != nil {
+		c.services = *copts.services
+	}
+	if address != "" {
+		gopts := []grpc.DialOption{
+			grpc.WithBlock(),
+			grpc.WithInsecure(),
+			grpc.WithTimeout(60 * time.Second),
+			grpc.FailOnNonTempDialError(true),
+			grpc.WithBackoffMaxDelay(3 * time.Second),
+			grpc.WithDialer(dialer.Dialer),
+		}
+		if len(copts.dialOptions) > 0 {
+			gopts = copts.dialOptions
+		}
+		if copts.defaultns != "" {
+			unary, stream := newNSInterceptors(copts.defaultns)
+			gopts = append(gopts,
+				grpc.WithUnaryInterceptor(unary),
+				grpc.WithStreamInterceptor(stream),
+			)
+		}
+		connector := func() (*grpc.ClientConn, error) {
+			conn, err := grpc.Dial(dialer.DialAddress(address), gopts...)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to dial %q", address)
+			}
+			return conn, nil
+		}
+		conn, err := connector()
+		if err != nil {
+			return nil, err
+		}
+		c.conn, c.connector = conn, connector
+	}
+	if copts.services == nil && c.conn == nil {
+		return nil, errors.New("no grpc connection or services is available")
+	}
+	return c, nil
 }
 
 // NewWithConn returns a new containerd client that is connected to the containerd
 // instance provided by the connection
 func NewWithConn(conn *grpc.ClientConn, opts ...ClientOpt) (*Client, error) {
-	services, err := newGRPCServicesWithConn(conn)
-	if err != nil {
-		return nil, err
+	var copts clientOpts
+	for _, o := range opts {
+		if err := o(&copts); err != nil {
+			return nil, err
+		}
 	}
-	return &Client{
-		Services: services,
-		runtime:  fmt.Sprintf("%s.%s", plugin.RuntimePlugin, runtime.GOOS),
-	}, nil
-}
-
-// Services are all required underlying services by Client.
-type Services interface {
-	// Reconnect re-establishes the connection to the containerd services
-	Reconnect() error
-	// Close closes the connection to the containerd services
-	Close() error
-	// NamespaceService returns the underlying Namespaces Store
-	NamespaceService() namespaces.Store
-	// ContainerService returns the underlying container Store
-	ContainerService() containers.Store
-	// ContentStore returns the underlying content Store
-	ContentStore() content.Store
-	// SnapshotService returns the underlying snapshotter for the provided snapshotter name
-	SnapshotService(snapshotterName string) snapshots.Snapshotter
-	// TaskService returns the underlying TasksClient
-	TaskService() tasks.TasksClient
-	// ImageService returns the underlying image Store
-	ImageService() images.Store
-	// DiffService returns the underlying Differ
-	DiffService() DiffService
-	// IntrospectionService returns the underlying Introspection Client
-	IntrospectionService() introspectionapi.IntrospectionClient
-	// LeasesService returns the underlying Leases Client
-	LeasesService() leasesapi.LeasesClient
-	// HealthService returns the underlying GRPC HealthClient
-	HealthService() grpc_health_v1.HealthClient
-	// EventService returns the underlying EventsClient
-	EventService() eventsapi.EventsClient
-	// VersionService returns the underlying VersionClient
-	VersionService() versionservice.VersionClient
+	c := &Client{
+		conn:    conn,
+		runtime: fmt.Sprintf("%s.%s", plugin.RuntimePlugin, runtime.GOOS),
+	}
+	if copts.services != nil {
+		c.services = *copts.services
+	}
+	return c, nil
 }
 
 // Client is the client to interact with containerd and its various services
 // using a uniform interface
 type Client struct {
-	Services
-	runtime string
+	services
+	conn      *grpc.ClientConn
+	runtime   string
+	connector func() (*grpc.ClientConn, error)
+}
+
+// Reconnect re-establishes the GRPC connection to the containerd daemon
+func (c *Client) Reconnect() error {
+	if c.connector == nil {
+		return errors.New("unable to reconnect to containerd, no connector available")
+	}
+	c.conn.Close()
+	conn, err := c.connector()
+	if err != nil {
+		return err
+	}
+	c.conn = conn
+	return nil
 }
 
 // IsServing returns true if the client can successfully connect to the
@@ -146,6 +170,9 @@ type Client struct {
 // connection. A timeout can be set in the context to ensure it returns
 // early.
 func (c *Client) IsServing(ctx context.Context) (bool, error) {
+	if c.conn == nil {
+		return false, errors.New("no grpc connection available")
+	}
 	r, err := c.HealthService().Check(ctx, &grpc_health_v1.HealthCheckRequest{}, grpc.FailFast(false))
 	if err != nil {
 		return false, err
@@ -382,43 +409,100 @@ func (c *Client) ListImages(ctx context.Context, filters ...string) ([]Image, er
 //
 // The subscriber can stop receiving events by canceling the provided context.
 // The errs channel will be closed and return a nil error.
-func (c *Client) Subscribe(ctx context.Context, filters ...string) (ch <-chan *eventsapi.Envelope, errs <-chan error) {
-	var (
-		evq  = make(chan *eventsapi.Envelope)
-		errq = make(chan error, 1)
-	)
+func (c *Client) Subscribe(ctx context.Context, filters ...string) (ch <-chan *events.Envelope, errs <-chan error) {
+	return c.EventService().Subscribe(ctx, filters...)
+}
 
-	errs = errq
-	ch = evq
+// Close closes the clients connection to containerd
+func (c *Client) Close() error {
+	return c.conn.Close()
+}
 
-	session, err := c.EventService().Subscribe(ctx, &eventsapi.SubscribeRequest{
-		Filters: filters,
-	})
-	if err != nil {
-		errq <- err
-		close(errq)
-		return
+// NamespaceService returns the underlying Namespaces Store
+func (c *Client) NamespaceService() namespaces.Store {
+	if c.namespaceStore != nil {
+		return c.namespaceStore
 	}
+	return NewNamespaceStoreFromClient(namespacesapi.NewNamespacesClient(c.conn))
+}
 
-	go func() {
-		defer close(errq)
+// ContainerService returns the underlying container Store
+func (c *Client) ContainerService() containers.Store {
+	if c.containerStore != nil {
+		return c.containerStore
+	}
+	return NewRemoteContainerStore(containersapi.NewContainersClient(c.conn))
+}
 
-		for {
-			ev, err := session.Recv()
-			if err != nil {
-				errq <- err
-				return
-			}
+// ContentStore returns the underlying content Store
+func (c *Client) ContentStore() content.Store {
+	if c.contentStore != nil {
+		return c.contentStore
+	}
+	return NewContentStoreFromClient(contentapi.NewContentClient(c.conn))
+}
 
-			select {
-			case evq <- ev:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+// SnapshotService returns the underlying snapshotter for the provided snapshotter name
+func (c *Client) SnapshotService(snapshotterName string) snapshots.Snapshotter {
+	if c.snapshotters != nil {
+		return c.snapshotters[snapshotterName]
+	}
+	return NewSnapshotterFromClient(snapshotsapi.NewSnapshotsClient(c.conn), snapshotterName)
+}
 
-	return ch, errs
+// TaskService returns the underlying TasksClient
+func (c *Client) TaskService() tasks.TasksClient {
+	if c.taskService != nil {
+		return c.taskService
+	}
+	return tasks.NewTasksClient(c.conn)
+}
+
+// ImageService returns the underlying image Store
+func (c *Client) ImageService() images.Store {
+	if c.imageStore != nil {
+		return c.imageStore
+	}
+	return NewImageStoreFromClient(imagesapi.NewImagesClient(c.conn))
+}
+
+// DiffService returns the underlying Differ
+func (c *Client) DiffService() DiffService {
+	if c.diffService != nil {
+		return c.diffService
+	}
+	return NewDiffServiceFromClient(diffapi.NewDiffClient(c.conn))
+}
+
+// IntrospectionService returns the underlying Introspection Client
+func (c *Client) IntrospectionService() introspectionapi.IntrospectionClient {
+	return introspectionapi.NewIntrospectionClient(c.conn)
+}
+
+// LeasesService returns the underlying Leases Client
+func (c *Client) LeasesService() leasesapi.LeasesClient {
+	if c.leasesService != nil {
+		return c.leasesService
+	}
+	return leasesapi.NewLeasesClient(c.conn)
+}
+
+// HealthService returns the underlying GRPC HealthClient
+func (c *Client) HealthService() grpc_health_v1.HealthClient {
+	return grpc_health_v1.NewHealthClient(c.conn)
+}
+
+// EventService returns the underlying event service
+func (c *Client) EventService() EventService {
+	if c.eventService != nil {
+		return c.eventService
+	}
+	return NewEventServiceFromClient(eventsapi.NewEventsClient(c.conn))
+}
+
+// VersionService returns the underlying VersionClient
+func (c *Client) VersionService() versionservice.VersionClient {
+	return versionservice.NewVersionClient(c.conn)
 }
 
 // Version of containerd
@@ -431,6 +515,9 @@ type Version struct {
 
 // Version returns the version of containerd that the client is connected to
 func (c *Client) Version(ctx context.Context) (Version, error) {
+	if c.conn == nil {
+		return Version{}, errors.New("no grpc connection available")
+	}
 	response, err := c.VersionService().Version(ctx, &ptypes.Empty{})
 	if err != nil {
 		return Version{}, err

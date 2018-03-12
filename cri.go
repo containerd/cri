@@ -21,10 +21,18 @@ import (
 	"path/filepath"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/containers/v1"
+	"github.com/containerd/containerd/api/services/diff/v1"
+	"github.com/containerd/containerd/api/services/images/v1"
+	"github.com/containerd/containerd/api/services/leases/v1"
+	"github.com/containerd/containerd/api/services/namespaces/v1"
+	"github.com/containerd/containerd/api/services/tasks/v1"
+	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/log"
-	"github.com/containerd/containerd/metadata"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/plugin"
+	"github.com/containerd/containerd/services"
+	"github.com/containerd/containerd/snapshots"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -33,9 +41,6 @@ import (
 	"github.com/containerd/cri-containerd/pkg/constants"
 	"github.com/containerd/cri-containerd/pkg/server"
 )
-
-// criVersion is the CRI version supported by the CRI plugin.
-const criVersion = "v1alpha2"
 
 // TODO(random-liu): Use github.com/pkg/errors for our errors.
 // Register CRI service plugin
@@ -46,13 +51,7 @@ func init() {
 		ID:     "cri",
 		Config: &config,
 		Requires: []plugin.Type{
-			plugin.RuntimePlugin,
-			plugin.SnapshotPlugin,
-			plugin.TaskMonitorPlugin,
-			plugin.DiffPlugin,
-			plugin.MetadataPlugin,
-			plugin.ContentPlugin,
-			plugin.GCPlugin,
+			plugin.ServicePlugin,
 		},
 		InitFn: initCRIService,
 	})
@@ -60,7 +59,7 @@ func init() {
 
 func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 	ic.Meta.Platforms = []imagespec.Platform{platforms.DefaultSpec()}
-	ic.Meta.Exports = map[string]string{"CRIVersion": criVersion}
+	ic.Meta.Exports = map[string]string{"CRIVersion": constants.CRIVersion}
 	ctx := ic.Context
 	pluginConfig := ic.Config.(*criconfig.PluginConfig)
 	c := criconfig.Config{
@@ -78,53 +77,85 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		return nil, errors.Wrap(err, "failed to set glog level")
 	}
 
-	s, err := server.NewCRIContainerdService(c)
+	servicesOpts, err := getServicesOpts(ic)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get services")
+	}
+
+	log.G(ctx).Info("Connect containerd service")
+	client, err := containerd.New(
+		"",
+		containerd.WithDefaultNamespace(constants.K8sContainerdNamespace),
+		containerd.WithServices(servicesOpts...),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create containerd client")
+	}
+
+	s, err := server.NewCRIContainerdService(c, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create CRI service")
 	}
 
-	meta, err := ic.Get(plugin.MetadataPlugin)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get metadata plugin")
-	}
-	db := meta.(*metadata.DB)
-	contentStore := db.ContentStore()
-	snapshotter := db.Snapshotter(pluginConfig.Snapshotter)
-	if snapshotter == nil {
-		return nil, errors.Errorf("snapshotter %q not loaded", pluginConfig.Snapshotter)
-	}
-
-	// Use a goroutine to initialize cri service. The reason is that currently
-	// cri service requires containerd to be initialize.
 	go func() {
-		// Connect containerd service here, to get rid of the containerd dependency.
-		// in `NewCRIContainerdService`.
-		log.G(ctx).Info("Connect containerd service")
-		// TODO(random-liu): Create client in `initCRIService` and pass it to
-		// `NewCRIContainerdService` (containerd/containerd#2183)
-		ctrdServices, err := containerd.NewLocalServices(
-			ic.Address,
-			constants.K8sContainerdNamespace,
-			// TODO(random-liu): Publish event from internal services.
-			// (containerd/containerd#2183)
-			containerd.WithContentStoreService(contentStore),
-			containerd.WithSnapshotterService(pluginConfig.Snapshotter, snapshotter),
-		)
-		if err != nil {
-			log.G(ctx).WithError(err).Fatal("Failed to create direct containerd services")
-		}
-		client, err := containerd.NewWithServices(
-			ctrdServices,
-		)
-		if err != nil {
-			log.G(ctx).WithError(err).Fatal("Failed to initialize containerd client")
-		}
-		if err := s.Run(client); err != nil {
+		if err := s.Run(); err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to run CRI service")
 		}
 		// TODO(random-liu): Whether and how we can stop containerd.
 	}()
 	return s, nil
+}
+
+// getServicesOpts get service options from plugin context.
+func getServicesOpts(ic *plugin.InitContext) ([]containerd.ServicesOpt, error) {
+	plugins, err := ic.GetByType(plugin.ServicePlugin)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get service plugin")
+	}
+
+	opts := []containerd.ServicesOpt{
+		containerd.WithEventService(ic.Events),
+	}
+	for s, fn := range map[string]func(interface{}) containerd.ServicesOpt{
+		services.ContentService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithContentStore(s.(content.Store))
+		},
+		services.ImagesService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithImageService(s.(images.ImagesClient))
+		},
+		services.SnapshotsService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithSnapshotters(s.(map[string]snapshots.Snapshotter))
+		},
+		services.ContainersService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithContainerService(s.(containers.ContainersClient))
+		},
+		services.TasksService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithTaskService(s.(tasks.TasksClient))
+		},
+		services.DiffService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithDiffService(s.(diff.DiffClient))
+		},
+		services.NamespacesService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithNamespaceService(s.(namespaces.NamespacesClient))
+		},
+		services.LeasesService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithLeasesService(s.(leases.LeasesClient))
+		},
+	} {
+		p := plugins[s]
+		if p == nil {
+			return nil, errors.Errorf("service %q not found", s)
+		}
+		i, err := p.Instance()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get instance of service %q", s)
+		}
+		if i == nil {
+			return nil, errors.Errorf("instance of service %q not found", s)
+		}
+		opts = append(opts, fn(i))
+	}
+	return opts, nil
 }
 
 // Set glog level.
