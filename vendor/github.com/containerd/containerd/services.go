@@ -17,6 +17,7 @@
 package containerd
 
 import (
+	"github.com/containerd/containerd/api/services/leases/v1"
 	namespacesapi "github.com/containerd/containerd/api/services/namespaces/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/containerd/containerd/containers"
@@ -34,6 +35,7 @@ type services struct {
 	snapshotters   map[string]snapshots.Snapshotter
 	taskService    tasks.TasksClient
 	eventService   EventService
+	leasesService  leases.LeasesClient
 }
 
 // ServicesOpt allows callers to set options on the services
@@ -88,5 +90,12 @@ func WithEventService(eventService EventService) ServicesOpt {
 func WithNamespaceService(namespaceService namespacesapi.NamespacesClient) ServicesOpt {
 	return func(s *services) {
 		s.namespaceStore = NewNamespaceStoreFromClient(namespaceService)
+	}
+}
+
+// WithLeasesService sets the lease service.
+func WithLeasesService(leasesService leases.LeasesClient) ServicesOpt {
+	return func(s *services) {
+		s.leasesService = leasesService
 	}
 }

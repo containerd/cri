@@ -478,6 +478,9 @@ func (c *Client) IntrospectionService() introspectionapi.IntrospectionClient {
 
 // LeasesService returns the underlying Leases Client
 func (c *Client) LeasesService() leasesapi.LeasesClient {
+	if c.leasesService != nil {
+		return c.leasesService
+	}
 	return leasesapi.NewLeasesClient(c.conn)
 }
 

@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/leases/v1"
 	"github.com/containerd/containerd/api/services/namespaces/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
 	"github.com/containerd/containerd/containers"
@@ -137,6 +138,9 @@ func getServicesOpts(ic *plugin.InitContext) ([]containerd.ServicesOpt, error) {
 		},
 		services.NamespacesService: func(s interface{}) containerd.ServicesOpt {
 			return containerd.WithNamespaceService(s.(namespaces.NamespacesClient))
+		},
+		services.LeasesService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithLeasesService(s.(leases.LeasesClient))
 		},
 	} {
 		p := plugins[s]
