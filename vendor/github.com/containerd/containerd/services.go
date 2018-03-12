@@ -17,6 +17,7 @@
 package containerd
 
 import (
+	"github.com/containerd/containerd/api/services/diff/v1"
 	"github.com/containerd/containerd/api/services/leases/v1"
 	namespacesapi "github.com/containerd/containerd/api/services/namespaces/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
@@ -34,6 +35,7 @@ type services struct {
 	namespaceStore namespaces.Store
 	snapshotters   map[string]snapshots.Snapshotter
 	taskService    tasks.TasksClient
+	diffService    DiffService
 	eventService   EventService
 	leasesService  leases.LeasesClient
 }
@@ -76,6 +78,13 @@ func WithContainerStore(containerStore containers.Store) ServicesOpt {
 func WithTaskService(taskService tasks.TasksClient) ServicesOpt {
 	return func(s *services) {
 		s.taskService = taskService
+	}
+}
+
+// WithDiffService sets the diff service.
+func WithDiffService(diffService diff.DiffClient) ServicesOpt {
+	return func(s *services) {
+		s.diffService = NewDiffServiceFromClient(diffService)
 	}
 }
 

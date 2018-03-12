@@ -50,18 +50,13 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return newService(i.(api.TasksClient)), nil
+			return &service{local: i.(api.TasksClient)}, nil
 		},
 	})
 }
 
 type service struct {
 	local api.TasksClient
-}
-
-// newService returns the tasks GRPC server
-func newService(local api.TasksClient) api.TasksServer {
-	return &service{local: local}
 }
 
 func (s *service) Register(server *grpc.Server) error {

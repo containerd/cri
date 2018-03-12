@@ -468,6 +468,9 @@ func (c *Client) ImageService() images.Store {
 
 // DiffService returns the underlying Differ
 func (c *Client) DiffService() DiffService {
+	if c.diffService != nil {
+		return c.diffService
+	}
 	return NewDiffServiceFromClient(diffapi.NewDiffClient(c.conn))
 }
 

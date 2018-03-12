@@ -46,7 +46,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return newService(i.(api.NamespacesClient)), nil
+			return &service{local: i.(api.NamespacesClient)}, nil
 		},
 	})
 }
@@ -56,11 +56,6 @@ type service struct {
 }
 
 var _ api.NamespacesServer = &service{}
-
-// newService returns the GRPC namespaces server
-func newService(local api.NamespacesClient) api.NamespacesServer {
-	return &service{local: local}
-}
 
 func (s *service) Register(server *grpc.Server) error {
 	api.RegisterNamespacesServer(server, s)

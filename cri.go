@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/diff/v1"
 	"github.com/containerd/containerd/api/services/leases/v1"
 	"github.com/containerd/containerd/api/services/namespaces/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
@@ -76,33 +77,28 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 		return nil, errors.Wrap(err, "failed to set glog level")
 	}
 
-	s, err := server.NewCRIContainerdService(c)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create CRI service")
-	}
-
 	servicesOpts, err := getServicesOpts(ic)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get services")
 	}
 
-	// Use a goroutine to initialize cri service. The reason is that currently
-	// cri service requires containerd to be initialize.
+	log.G(ctx).Info("Connect containerd service")
+	client, err := containerd.New(
+		"",
+		containerd.WithDefaultNamespace(constants.K8sContainerdNamespace),
+		containerd.WithServices(servicesOpts...),
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create containerd client")
+	}
+
+	s, err := server.NewCRIContainerdService(c, client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create CRI service")
+	}
+
 	go func() {
-		// Connect containerd service here, to get rid of the containerd dependency.
-		// in `NewCRIContainerdService`.
-		log.G(ctx).Info("Connect containerd service")
-		// TODO(random-liu): Create client in `initCRIService` and pass it to
-		// `NewCRIContainerdService` (containerd/containerd#2183)
-		client, err := containerd.New(
-			ic.Address,
-			containerd.WithDefaultNamespace(constants.K8sContainerdNamespace),
-			containerd.WithServices(servicesOpts...),
-		)
-		if err != nil {
-			log.G(ctx).WithError(err).Fatal("Failed to initialize containerd client")
-		}
-		if err := s.Run(client); err != nil {
+		if err := s.Run(); err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to run CRI service")
 		}
 		// TODO(random-liu): Whether and how we can stop containerd.
@@ -135,6 +131,9 @@ func getServicesOpts(ic *plugin.InitContext) ([]containerd.ServicesOpt, error) {
 		},
 		services.TasksService: func(s interface{}) containerd.ServicesOpt {
 			return containerd.WithTaskService(s.(tasks.TasksClient))
+		},
+		services.DiffService: func(s interface{}) containerd.ServicesOpt {
+			return containerd.WithDiffService(s.(diff.DiffClient))
 		},
 		services.NamespacesService: func(s interface{}) containerd.ServicesOpt {
 			return containerd.WithNamespaceService(s.(namespaces.NamespacesClient))

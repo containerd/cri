@@ -47,7 +47,10 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return newLocalService(m.(*metadata.DB), ic.Events), nil
+			return &local{
+				db:        m.(*metadata.DB),
+				publisher: ic.Events,
+			}, nil
 		},
 	})
 }
@@ -61,14 +64,6 @@ type local struct {
 }
 
 var _ api.NamespacesClient = &local{}
-
-// newLocalService returns the local namespaces service
-func newLocalService(db *metadata.DB, publisher events.Publisher) api.NamespacesClient {
-	return &local{
-		db:        db,
-		publisher: publisher,
-	}
-}
 
 func (l *local) Get(ctx context.Context, req *api.GetNamespaceRequest, _ ...grpc.CallOption) (*api.GetNamespaceResponse, error) {
 	var resp api.GetNamespaceResponse

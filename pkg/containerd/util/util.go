@@ -19,7 +19,10 @@ package util
 import (
 	"time"
 
+	"github.com/containerd/containerd/namespaces"
 	"golang.org/x/net/context"
+
+	"github.com/containerd/cri-containerd/pkg/constants"
 )
 
 // deferCleanupTimeout is the default timeout for containerd cleanup operations
@@ -28,8 +31,7 @@ const deferCleanupTimeout = 1 * time.Minute
 
 // DeferContext returns a context for containerd cleanup operations in defer.
 // A default timeout is applied to avoid cleanup operation pending forever.
-// TODO(random-liu): Add namespace after local services are used.
-// (containerd/containerd#2183)
 func DeferContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), deferCleanupTimeout)
+	ctx := namespaces.WithNamespace(context.Background(), constants.K8sContainerdNamespace)
+	return context.WithTimeout(ctx, deferCleanupTimeout)
 }

@@ -31,4 +31,6 @@ const (
 	NamespacesService = "namespaces-service"
 	// LeasesService is id of leases service.
 	LeasesService = "leases-service"
+	// DiffService is id of diff service.
+	DiffService = "diff-service"
 )

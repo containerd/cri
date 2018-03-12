@@ -45,20 +45,13 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return newLocalService(m.(*metadata.DB)), nil
+			return &local{db: m.(*metadata.DB)}, nil
 		},
 	})
 }
 
 type local struct {
 	db *metadata.DB
-}
-
-// newLocalService returns the local lease service
-func newLocalService(db *metadata.DB) api.LeasesClient {
-	return &local{
-		db: db,
-	}
 }
 
 func (l *local) Create(ctx context.Context, r *api.CreateRequest, _ ...grpc.CallOption) (*api.CreateResponse, error) {
