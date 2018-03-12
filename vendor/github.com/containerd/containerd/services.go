@@ -17,7 +17,9 @@
 package containerd
 
 import (
+	containersapi "github.com/containerd/containerd/api/services/containers/v1"
 	"github.com/containerd/containerd/api/services/diff/v1"
+	imagesapi "github.com/containerd/containerd/api/services/images/v1"
 	"github.com/containerd/containerd/api/services/leases/v1"
 	namespacesapi "github.com/containerd/containerd/api/services/namespaces/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
@@ -50,10 +52,10 @@ func WithContentStore(contentStore content.Store) ServicesOpt {
 	}
 }
 
-// WithImageStore sets the image store.
-func WithImageStore(imageStore images.Store) ServicesOpt {
+// WithImageService sets the image service.
+func WithImageService(imageService imagesapi.ImagesClient) ServicesOpt {
 	return func(s *services) {
-		s.imageStore = imageStore
+		s.imageStore = NewImageStoreFromClient(imageService)
 	}
 }
 
@@ -67,10 +69,10 @@ func WithSnapshotters(snapshotters map[string]snapshots.Snapshotter) ServicesOpt
 	}
 }
 
-// WithContainerStore sets the container store.
-func WithContainerStore(containerStore containers.Store) ServicesOpt {
+// WithContainerService sets the container service.
+func WithContainerService(containerService containersapi.ContainersClient) ServicesOpt {
 	return func(s *services) {
-		s.containerStore = containerStore
+		s.containerStore = NewRemoteContainerStore(containerService)
 	}
 }
 

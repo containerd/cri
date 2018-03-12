@@ -21,13 +21,13 @@ import (
 	"path/filepath"
 
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/api/services/containers/v1"
 	"github.com/containerd/containerd/api/services/diff/v1"
+	"github.com/containerd/containerd/api/services/images/v1"
 	"github.com/containerd/containerd/api/services/leases/v1"
 	"github.com/containerd/containerd/api/services/namespaces/v1"
 	"github.com/containerd/containerd/api/services/tasks/v1"
-	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/content"
-	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/plugin"
@@ -121,13 +121,13 @@ func getServicesOpts(ic *plugin.InitContext) ([]containerd.ServicesOpt, error) {
 			return containerd.WithContentStore(s.(content.Store))
 		},
 		services.ImagesService: func(s interface{}) containerd.ServicesOpt {
-			return containerd.WithImageStore(s.(images.Store))
+			return containerd.WithImageService(s.(images.ImagesClient))
 		},
 		services.SnapshotsService: func(s interface{}) containerd.ServicesOpt {
 			return containerd.WithSnapshotters(s.(map[string]snapshots.Snapshotter))
 		},
 		services.ContainersService: func(s interface{}) containerd.ServicesOpt {
-			return containerd.WithContainerStore(s.(containers.Store))
+			return containerd.WithContainerService(s.(containers.ContainersClient))
 		},
 		services.TasksService: func(s interface{}) containerd.ServicesOpt {
 			return containerd.WithTaskService(s.(tasks.TasksClient))

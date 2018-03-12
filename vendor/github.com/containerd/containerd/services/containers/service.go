@@ -18,16 +18,12 @@ package containers
 
 import (
 	api "github.com/containerd/containerd/api/services/containers/v1"
-	"github.com/containerd/containerd/containers"
-	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/plugin"
 	"github.com/containerd/containerd/services"
 	ptypes "github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func init() {
@@ -46,23 +42,20 @@ func init() {
 			if !ok {
 				return nil, errors.New("containers service not found")
 			}
-			cs, err := p.Instance()
+			i, err := p.Instance()
 			if err != nil {
 				return nil, err
 			}
-			return newService(cs.(containers.Store)), nil
+			return &service{local: i.(api.ContainersClient)}, nil
 		},
 	})
 }
 
 type service struct {
-	store containers.Store
+	local api.ContainersClient
 }
 
-// newService returns the container GRPC server
-func newService(store containers.Store) api.ContainersServer {
-	return &service{store: store}
-}
+var _ api.ContainersServer = &service{}
 
 func (s *service) Register(server *grpc.Server) error {
 	api.RegisterContainersServer(server, s)
@@ -70,61 +63,21 @@ func (s *service) Register(server *grpc.Server) error {
 }
 
 func (s *service) Get(ctx context.Context, req *api.GetContainerRequest) (*api.GetContainerResponse, error) {
-	container, err := s.store.Get(ctx, req.ID)
-	if err != nil {
-		return nil, errdefs.ToGRPC(err)
-	}
-
-	return &api.GetContainerResponse{
-		Container: containerToProto(&container),
-	}, nil
+	return s.local.Get(ctx, req)
 }
 
 func (s *service) List(ctx context.Context, req *api.ListContainersRequest) (*api.ListContainersResponse, error) {
-	containers, err := s.store.List(ctx, req.Filters...)
-	if err != nil {
-		return nil, errdefs.ToGRPC(err)
-	}
-
-	return &api.ListContainersResponse{
-		Containers: containersToProto(containers),
-	}, nil
+	return s.local.List(ctx, req)
 }
 
 func (s *service) Create(ctx context.Context, req *api.CreateContainerRequest) (*api.CreateContainerResponse, error) {
-	container := containerFromProto(&req.Container)
-	created, err := s.store.Create(ctx, container)
-	if err != nil {
-		return nil, errdefs.ToGRPC(err)
-	}
-
-	return &api.CreateContainerResponse{
-		Container: containerToProto(&created),
-	}, nil
+	return s.local.Create(ctx, req)
 }
 
 func (s *service) Update(ctx context.Context, req *api.UpdateContainerRequest) (*api.UpdateContainerResponse, error) {
-	if req.Container.ID == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "Container.ID required")
-	}
-	container := containerFromProto(&req.Container)
-	var fieldpaths []string
-	if req.UpdateMask != nil && len(req.UpdateMask.Paths) > 0 {
-		for _, path := range req.UpdateMask.Paths {
-			fieldpaths = append(fieldpaths, path)
-		}
-	}
-
-	updated, err := s.store.Update(ctx, container, fieldpaths...)
-	if err != nil {
-		return nil, errdefs.ToGRPC(err)
-	}
-
-	return &api.UpdateContainerResponse{
-		Container: containerToProto(&updated),
-	}, nil
+	return s.local.Update(ctx, req)
 }
 
 func (s *service) Delete(ctx context.Context, req *api.DeleteContainerRequest) (*ptypes.Empty, error) {
-	return &ptypes.Empty{}, errdefs.ToGRPC(s.store.Delete(ctx, req.ID))
+	return s.local.Delete(ctx, req)
 }
