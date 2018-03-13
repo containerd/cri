@@ -1,17 +1,16 @@
 CRICTL User Guide
 =================
-This document presumes you already have `containerd` and `cri-containerd`
-installed and running.
+This document presumes you already have `containerd` with the `cri` plugin installed and running.
 
 This document is for developers who wish to debug, inspect, and manage their pods,
 containers, and container images.
 
-Before generating issues against this document, `containerd`, `cri-containerd`,
+Before generating issues against this document, `containerd`, `containerd/cri`,
 or `crictl` please make sure the issue has not already been submitted.
 
 ## Install crictl
 If you have not already installed crictl please install the version compatible
-with the `cri-containerd` you are using. If you are a user, your deployment
+with the `cri` plugin you are using. If you are a user, your deployment
 should have installed crictl for you. If not, get it from your release tarball.
 If you are a developer the current version of crictl is specified [here](../hack/utils.sh).
 A helper command has been included to install the dependencies at the right version:
@@ -23,8 +22,8 @@ so you don't have to repeatedly specify the runtime sock used to connect crictl
 to the container runtime:
 ```console
 $ cat /etc/crictl.yaml
-runtime-endpoint: /var/run/cri-containerd.sock
-image-endpoint: /var/run/cri-containerd.sock
+runtime-endpoint: /run/containerd/containerd.sock
+image-endpoint: /run/containerd/containerd.sock
 timeout: 10
 debug: true
 ```
@@ -154,11 +153,11 @@ container and `rm ID` to remove a container.
 ```console
 $ crictl version
 Version:  0.1.0
-RuntimeName:  cri-containerd
+RuntimeName:  containerd
 RuntimeVersion:  1.0.0-alpha.1-167-g737efe7-dirty
 RuntimeApiVersion:  0.0.0
 ```
-## Display Status & Configuration Information about Containerd & CRI-Containerd
+## Display Status & Configuration Information about Containerd & The CRI Plugin
 ```console
 $ crictl info
 {
@@ -189,8 +188,8 @@ $ crictl info
       "binDir": "/opt/cni/bin",
       "confDir": "/etc/cni/net.d"
     },
-    "socketPath": "/var/run/cri-containerd.sock",
-    "rootDir": "/var/lib/cri-containerd",
+    "socketPath": "/run/containerd/containerd.sock",
+    "rootDir": "/var/lib/containerd",
     "streamServerPort": "10010",
     "sandboxImage": "gcr.io/google_containers/pause:3.0",
     "statsCollectPeriod": 10,
