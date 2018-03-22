@@ -26,6 +26,7 @@ FOCUS=${FOCUS:-""}
 REPORT_DIR=${REPORT_DIR:-"/tmp/test-integration"}
 
 CRI_ROOT="/var/lib/containerd/io.containerd.grpc.v1.cri"
+CRI_STATE="/run/containerd/io.containerd.grpc.v1.cri"
 
 mkdir -p ${REPORT_DIR}
 test_setup ${REPORT_DIR}
@@ -33,7 +34,8 @@ test_setup ${REPORT_DIR}
 # Run integration test.
 sudo ${ROOT}/_output/integration.test --test.run="${FOCUS}" --test.v \
   --cri-endpoint=${CONTAINERD_SOCK} \
-  --cri-root=${CRI_ROOT}
+  --cri-root=${CRI_ROOT} \
+  --cri-state=${CRI_STATE}
 
 test_exit_code=$?
 

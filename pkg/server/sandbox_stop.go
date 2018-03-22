@@ -81,7 +81,7 @@ func (c *criService) StopPodSandbox(ctx context.Context, r *runtime.StopPodSandb
 
 	logrus.Infof("TearDown network for sandbox %q successfully", id)
 
-	sandboxRoot := getSandboxRootDir(c.config.RootDir, id)
+	sandboxRoot := getSandboxRootDir(c.config.StateDir, id)
 	if err := c.unmountSandboxFiles(sandboxRoot, sandbox.Config); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmount sandbox files in %q", sandboxRoot)
 	}

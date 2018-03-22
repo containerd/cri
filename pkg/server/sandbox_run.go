@@ -189,18 +189,27 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		}
 	}()
 
-	// Create sandbox container root directory.
-	sandboxRootDir := getSandboxRootDir(c.config.RootDir, id)
+	// Create sandbox container root directories.
+	sandboxRootDir := getSandboxRootDir(c.config.StateDir, id)
 	if err := c.os.MkdirAll(sandboxRootDir, 0755); err != nil {
 		return nil, errors.Wrapf(err, "failed to create sandbox root directory %q",
 			sandboxRootDir)
 	}
+	persistentSandboxRootDir := getSandboxRootDir(c.config.RootDir, id)
+	if err := c.os.MkdirAll(persistentSandboxRootDir, 0755); err != nil {
+		return nil, errors.Wrapf(err, "failed to create persistent sandbox root directory %q",
+			persistentSandboxRootDir)
+	}
 	defer func() {
 		if retErr != nil {
-			// Cleanup the sandbox root directory.
+			// Cleanup the sandbox root directories.
 			if err := c.os.RemoveAll(sandboxRootDir); err != nil {
 				logrus.WithError(err).Errorf("Failed to remove sandbox root directory %q",
 					sandboxRootDir)
+			}
+			if err := c.os.RemoveAll(persistentSandboxRootDir); err != nil {
+				logrus.WithError(err).Errorf("Failed to remove persistent sandbox root directory %q",
+					persistentSandboxRootDir)
 			}
 		}
 	}()

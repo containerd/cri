@@ -38,8 +38,11 @@ The explanation and default value of each configuration item are as follows:
       # runtime_engine is the name of the runtime engine used by containerd.
       runtime_engine = ""
 
-      # runtime_root is the directory used by containerd for runtime state.
+      # runtime_root is the directory used by containerd for persistent runtime state.
       runtime_root = ""
+
+      # runtime_state is the directory used by containerd for volatile runtime state.
+      runtime_state = ""
 
     # "plugins.cri.containerd.untrusted_workload_runtime" is a runtime to run untrusted workloads on it.
     [plugins.cri.containerd.untrusted_workload_runtime]
@@ -49,8 +52,11 @@ The explanation and default value of each configuration item are as follows:
       # runtime_engine is the name of the runtime engine used by containerd.
       runtime_engine = ""
 
-      # runtime_root is the directory used by containerd for runtime state.
+      # runtime_root is the directory used by containerd for persistent runtime state.
       runtime_root = ""
+
+      # runtime_state is the directory used by containerd for volatile runtime state.
+      runtime_state = ""
 
   # "plugins.cri.cni" contains config related to cni
   [plugins.cri.cni]

@@ -134,17 +134,26 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	logrus.Debugf("Use OCI %+v for container %q", ociRuntime, id)
 
 	// Create container root directory.
-	containerRootDir := getContainerRootDir(c.config.RootDir, id)
+	containerRootDir := getContainerRootDir(c.config.StateDir, id)
 	if err = c.os.MkdirAll(containerRootDir, 0755); err != nil {
 		return nil, errors.Wrapf(err, "failed to create container root directory %q",
 			containerRootDir)
 	}
+	persistentContainerRootDir := getContainerRootDir(c.config.RootDir, id)
+	if err = c.os.MkdirAll(persistentContainerRootDir, 0755); err != nil {
+		return nil, errors.Wrapf(err, "failed to create persistent container root directory %q",
+			persistentContainerRootDir)
+	}
 	defer func() {
 		if retErr != nil {
-			// Cleanup the container root directory.
+			// Cleanup the container root directories.
 			if err = c.os.RemoveAll(containerRootDir); err != nil {
 				logrus.WithError(err).Errorf("Failed to remove container root directory %q",
 					containerRootDir)
+			}
+			if err = c.os.RemoveAll(persistentContainerRootDir); err != nil {
+				logrus.WithError(err).Errorf("Failed to remove persistent container root directory %q",
+					persistentContainerRootDir)
 			}
 		}
 	}()
@@ -153,7 +162,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	volumeMounts := c.generateVolumeMounts(containerRootDir, config.GetMounts(), &image.ImageSpec.Config)
 
 	// Generate container runtime spec.
-	mounts := c.generateContainerMounts(getSandboxRootDir(c.config.RootDir, sandboxID), config)
+	mounts := c.generateContainerMounts(getSandboxRootDir(c.config.StateDir, sandboxID), config)
 
 	spec, err := c.generateContainerSpec(id, sandboxID, sandboxPid, config, sandboxConfig, &image.ImageSpec.Config, append(mounts, volumeMounts...))
 	if err != nil {
@@ -261,7 +270,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 
 	status := containerstore.Status{CreatedAt: time.Now().UnixNano()}
 	container, err := containerstore.NewContainer(meta,
-		containerstore.WithStatus(status, containerRootDir),
+		containerstore.WithStatus(status, persistentContainerRootDir),
 		containerstore.WithContainer(cntr),
 		containerstore.WithContainerIO(containerIO),
 	)

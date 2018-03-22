@@ -25,8 +25,10 @@ type Runtime struct {
 	Type string `toml:"runtime_type" json:"runtimeType"`
 	// Engine is the name of the runtime engine used by containerd.
 	Engine string `toml:"runtime_engine" json:"runtimeEngine"`
-	// Root is the directory used by containerd for runtime state.
-	Root string `toml:"runtime_root" json:"runtimeRoot"`
+	// Root is the directory used by containerd for persistent runtime state.
+	Root string `toml:"runtime_root" json:"runtimeRoot"` // TODO (mikebrow): Root and State configs should override containerd's defaults
+	// State is the directory used by containerd for volatile runtime state.
+	State string `toml:"runtime_state" json:"runtimeState"`
 }
 
 // ContainerdConfig contains toml config related to containerd
@@ -96,6 +98,8 @@ type Config struct {
 	// RootDir is the root directory path for managing cri plugin files
 	// (metadata checkpoint etc.)
 	RootDir string `json:"rootDir"`
+	// StateDir is the root directory path for managing volatile pod/container data
+	StateDir string `json:"stateDir"`
 }
 
 // DefaultConfig returns default configurations of cri plugin.
@@ -111,6 +115,7 @@ func DefaultConfig() PluginConfig {
 				Type:   "io.containerd.runtime.v1.linux",
 				Engine: "",
 				Root:   "",
+				State:  "",
 			},
 		},
 		StreamServerAddress: "",
