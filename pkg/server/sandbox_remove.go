@@ -72,11 +72,16 @@ func (c *criService) RemovePodSandbox(ctx context.Context, r *runtime.RemovePodS
 		}
 	}
 
-	// Cleanup the sandbox root directory.
-	sandboxRootDir := getSandboxRootDir(c.config.RootDir, id)
+	// Cleanup the sandbox root directories.
+	sandboxRootDir := getSandboxRootDir(c.config.StateDir, id)
 	if err := system.EnsureRemoveAll(sandboxRootDir); err != nil {
 		return nil, errors.Wrapf(err, "failed to remove sandbox root directory %q",
 			sandboxRootDir)
+	}
+	persistentSandboxRootDir := getSandboxRootDir(c.config.RootDir, id)
+	if err := system.EnsureRemoveAll(persistentSandboxRootDir); err != nil {
+		return nil, errors.Wrapf(err, "failed to remove persistent sandbox root directory %q",
+			persistentSandboxRootDir)
 	}
 
 	// Delete sandbox container.

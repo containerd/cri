@@ -116,7 +116,7 @@ func (c *criService) execInContainer(ctx context.Context, id string, opts execOp
 	}
 	execID := util.GenerateID()
 	logrus.Debugf("Generated exec id %q for container %q", execID, id)
-	rootDir := getContainerRootDir(c.config.RootDir, id)
+	rootDir := getContainerRootDir(c.config.StateDir, id)
 	var execIO *cio.ExecIO
 	process, err := task.Exec(ctx, execID, pspec,
 		func(id string) (containerdio.IO, error) {

@@ -78,8 +78,9 @@ func (c *criService) recover(ctx context.Context) error {
 		return errors.Wrap(err, "failed to list containers")
 	}
 	for _, container := range containers {
-		containerDir := getContainerRootDir(c.config.RootDir, container.ID())
-		cntr, err := loadContainer(ctx, container, containerDir)
+		containerDir := getContainerRootDir(c.config.StateDir, container.ID())
+		persistentContainerDir := getContainerRootDir(c.config.RootDir, container.ID())
+		cntr, err := loadContainer(ctx, container, containerDir, persistentContainerDir)
 		if err != nil {
 			logrus.WithError(err).Errorf("Failed to load container %q", container.ID())
 			continue
@@ -114,20 +115,26 @@ func (c *criService) recover(ctx context.Context) error {
 	// with best effort.
 
 	// Cleanup orphaned sandbox directories without corresponding containerd container.
-	if err := cleanupOrphanedSandboxDirs(sandboxes, filepath.Join(c.config.RootDir, "sandboxes")); err != nil {
+	if err := cleanupOrphanedSandboxDirs(sandboxes, filepath.Join(c.config.StateDir, "sandboxes")); err != nil {
 		return errors.Wrap(err, "failed to cleanup orphaned sandbox directories")
+	}
+	if err := cleanupOrphanedSandboxDirs(sandboxes, filepath.Join(c.config.RootDir, "sandboxes")); err != nil {
+		return errors.Wrap(err, "failed to cleanup persistent orphaned sandbox directories")
 	}
 
 	// Cleanup orphaned container directories without corresponding containerd container.
-	if err := cleanupOrphanedContainerDirs(containers, filepath.Join(c.config.RootDir, "containers")); err != nil {
+	if err := cleanupOrphanedContainerDirs(containers, filepath.Join(c.config.StateDir, "containers")); err != nil {
 		return errors.Wrap(err, "failed to cleanup orphaned container directories")
+	}
+	if err := cleanupOrphanedContainerDirs(containers, filepath.Join(c.config.RootDir, "containers")); err != nil {
+		return errors.Wrap(err, "failed to cleanup persistent orphaned container directories")
 	}
 
 	return nil
 }
 
 // loadContainer loads container from containerd and status checkpoint.
-func loadContainer(ctx context.Context, cntr containerd.Container, containerDir string) (containerstore.Container, error) {
+func loadContainer(ctx context.Context, cntr containerd.Container, containerDir string, persistentContainerDir string) (containerstore.Container, error) {
 	id := cntr.ID()
 	var container containerstore.Container
 	// Load container metadata.
@@ -146,7 +153,7 @@ func loadContainer(ctx context.Context, cntr containerd.Container, containerDir 
 	meta := data.(*containerstore.Metadata)
 
 	// Load status from checkpoint.
-	status, err := containerstore.LoadStatus(containerDir, id)
+	status, err := containerstore.LoadStatus(persistentContainerDir, id)
 	if err != nil {
 		logrus.WithError(err).Warnf("Failed to load container status for %q", id)
 		status = unknownContainerStatus()
@@ -249,7 +256,7 @@ func loadContainer(ctx context.Context, cntr containerd.Container, containerDir 
 		}
 	}
 	opts := []containerstore.Opts{
-		containerstore.WithStatus(status, containerDir),
+		containerstore.WithStatus(status, persistentContainerDir),
 		containerstore.WithContainer(cntr),
 	}
 	if containerIO != nil {

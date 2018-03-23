@@ -53,6 +53,7 @@ var (
 
 var criEndpoint = flag.String("cri-endpoint", "/run/containerd/containerd.sock", "The endpoint of cri plugin.")
 var criRoot = flag.String("cri-root", "/var/lib/containerd/io.containerd.grpc.v1.cri", "The root directory of cri plugin.")
+var criState = flag.String("cri-state", "/run/containerd/io.containerd.grpc.v1.cri", "The root directory of volatile data for cri plugin.")
 
 func init() {
 	flag.Parse()
