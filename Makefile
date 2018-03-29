@@ -25,13 +25,14 @@ VERSION := $(shell git describe --tags --dirty --always)
 # strip the first char of the tag if it's a `v`
 VERSION := $(VERSION:v%=%)
 TARBALL_PREFIX := cri-containerd
-TARBALL := $(TARBALL_PREFIX)-$(VERSION).$(GOOS)-$(GOARCH).tar.gz
+TARBALL := $(TARBALL_PREFIX)-$(VERSION).$(GOOS)
 BUILD_TAGS := seccomp apparmor
 # Add `-TEST` suffix to indicate that all binaries built from this repo are for test.
 GO_LDFLAGS := -X $(PROJECT)/vendor/github.com/containerd/containerd/version.Version=$(VERSION)-TEST
 SOURCES := $(shell find cmd/ pkg/ vendor/ -name '*.go')
 PLUGIN_SOURCES := $(shell ls *.go)
 INTEGRATION_SOURCES := $(shell find integration/ -name '*.go')
+ALL_ARCH = amd64 arm arm64 ppc64le
 
 all: binaries
 
@@ -128,6 +129,10 @@ clean:
 
 binaries: $(BUILD_DIR)/containerd $(BUILD_DIR)/ctr
 
+static-binaries:
+ifdef ARCH
+       GOARCH=$(ARCH)
+endif
 static-binaries: GO_LDFLAGS += -extldflags "-fno-PIC -static"
 static-binaries: $(BUILD_DIR)/containerd $(BUILD_DIR)/ctr
 
@@ -148,12 +153,18 @@ uninstall:
 	rm -f $(BINDIR)/ctr
 
 $(BUILD_DIR)/$(TARBALL): static-binaries vendor.conf
-	@BUILD_DIR=$(BUILD_DIR) TARBALL=$(TARBALL) VERSION=$(VERSION) ./hack/release.sh
+	@BUILD_DIR=$(BUILD_DIR) TARBALL=$(join $(TARBALL),-$(ARCH).tar.gz) VERSION=$(VERSION) ./hack/release.sh
 
-release: $(BUILD_DIR)/$(TARBALL)
+release: $(addprefix sub-release-,$(ALL_ARCH))
 
-push: $(BUILD_DIR)/$(TARBALL)
-	@BUILD_DIR=$(BUILD_DIR) TARBALL=$(TARBALL) VERSION=$(VERSION) ./hack/push.sh
+sub-release-%:
+	$(MAKE) --no-print-directory ARCH=$* $(BUILD_DIR)/$(TARBALL)
+
+push: $(addprefix sub-release-push-,$(ALL_ARCH))
+
+sub-release-push-%:
+	$(MAKE) --no-print-directory ARCH=$* $(BUILD_DIR)/$(TARBALL)
+	BUILD_DIR=$(BUILD_DIR) TARBALL=$(join $(TARBALL),-$*.tar.gz) VERSION=$(VERSION) ./hack/push.sh
 
 proto:
 	@hack/update-proto.sh
