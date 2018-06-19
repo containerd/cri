@@ -72,16 +72,18 @@ func New(config ...ConfigOption) (CNI, error) {
 
 func (c *libcni) Load(opts ...LoadOption) error {
 	var err error
+	c.Lock()
+	defer c.Unlock()
+
 	// Reset the networks on a load operation to ensure
 	// config happens on a clean slate
 	c.reset()
-
 	for _, o := range opts {
 		if err = o(c); err != nil {
 			return errors.Wrapf(ErrLoad, fmt.Sprintf("cni config load failed: %v", err))
 		}
 	}
-	return c.Status()
+	return nil
 }
 
 func (c *libcni) Status() error {
@@ -95,16 +97,16 @@ func (c *libcni) Status() error {
 
 // Setup setups the network in the namespace
 func (c *libcni) Setup(id string, path string, opts ...NamespaceOpts) (*CNIResult, error) {
-	if err:=c.Status();err!=nil{
-		return nil,err
+	c.RLock()
+	defer c.RUnlock()
+	if err := c.Status(); err != nil {
+		return nil, err
 	}
 	ns, err := newNamespace(id, path, opts...)
 	if err != nil {
 		return nil, err
 	}
 	var results []*current.Result
-	c.RLock()
-	defer c.RUnlock()
 	for _, network := range c.networks {
 		r, err := network.Attach(ns)
 		if err != nil {
@@ -117,9 +119,11 @@ func (c *libcni) Setup(id string, path string, opts ...NamespaceOpts) (*CNIResul
 
 // Remove removes the network config from the namespace
 func (c *libcni) Remove(id string, path string, opts ...NamespaceOpts) error {
-	if err:=c.Status();err!=nil{
-           return err
-        }
+	c.RLock()
+	defer c.RUnlock()
+	if err := c.Status(); err != nil {
+		return err
+	}
 	ns, err := newNamespace(id, path, opts...)
 	if err != nil {
 		return err
@@ -135,7 +139,5 @@ func (c *libcni) Remove(id string, path string, opts ...NamespaceOpts) error {
 }
 
 func (c *libcni) reset() {
-	c.Lock()
-	defer c.Unlock()
 	c.networks = nil
 }
