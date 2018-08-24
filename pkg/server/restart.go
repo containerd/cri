@@ -146,8 +146,22 @@ func (c *criService) recover(ctx context.Context) error {
 	return nil
 }
 
+// loadContainerTimeout is the default timeout for loading a container/sandbox.
+// One container/sandbox hangs (e.g. containerd#2438) should not affect other
+// containers/sandboxes.
+// Most CRI container/sandbox related operations are per container, the ones
+// which handle multiple containers at a time are:
+// * ListPodSandboxes: Don't talk with containerd services.
+// * ListContainers: Don't talk with containerd services.
+// * ListContainerStats: Not in critical code path, a default timeout will
+// be applied at CRI level.
+// * Recovery logic: We should set a time for each container/sandbox recovery.
+const loadContainerTimeout = 10 * time.Second
+
 // loadContainer loads container from containerd and status checkpoint.
 func (c *criService) loadContainer(ctx context.Context, cntr containerd.Container) (containerstore.Container, error) {
+	ctx, cancel := context.WithTimeout(ctx, loadContainerTimeout)
+	defer cancel()
 	id := cntr.ID()
 	containerDir := c.getContainerRootDir(id)
 	volatileContainerDir := c.getVolatileContainerRootDir(id)
@@ -310,6 +324,8 @@ func unknownContainerStatus() containerstore.Status {
 
 // loadSandbox loads sandbox from containerd.
 func loadSandbox(ctx context.Context, cntr containerd.Container) (sandboxstore.Sandbox, error) {
+	ctx, cancel := context.WithTimeout(ctx, loadContainerTimeout)
+	defer cancel()
 	var sandbox sandboxstore.Sandbox
 	// Load sandbox metadata.
 	exts, err := cntr.Extensions(ctx)
