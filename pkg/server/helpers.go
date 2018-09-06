@@ -252,11 +252,7 @@ func (c *criService) localResolve(ctx context.Context, refOrID string) (*imagest
 			if err != nil {
 				return ""
 			}
-			desc, err := image.Config(ctx)
-			if err != nil {
-				return ""
-			}
-			return desc.Digest.String()
+			return image.Target().Digest.String()
 		}(refOrID)
 	}
 
@@ -344,7 +340,6 @@ func getImageInfo(ctx context.Context, image containerd.Image) (*imageInfo, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get image config descriptor")
 	}
-	id := desc.Digest.String()
 
 	rb, err := content.ReadBlob(ctx, image.ContentStore(), desc)
 	if err != nil {
@@ -354,6 +349,8 @@ func getImageInfo(ctx context.Context, image containerd.Image) (*imageInfo, erro
 	if err := json.Unmarshal(rb, &ociimage); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal image config %s", rb)
 	}
+
+	id := image.Target().Digest.String()
 
 	return &imageInfo{
 		id:        id,

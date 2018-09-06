@@ -411,12 +411,8 @@ func loadImages(ctx context.Context, cImages []containerd.Image,
 	// Group images by image id.
 	imageMap := make(map[string][]containerd.Image)
 	for _, i := range cImages {
-		desc, err := i.Config(ctx)
-		if err != nil {
-			logrus.WithError(err).Warnf("Failed to get image config for %q", i.Name())
-			continue
-		}
-		id := desc.Digest.String()
+		target := i.Target()
+		id := target.Digest.String()
 		imageMap[id] = append(imageMap[id], i)
 	}
 	var images []imagestore.Image

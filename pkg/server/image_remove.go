@@ -50,24 +50,8 @@ func (c *criService) RemoveImage(ctx context.Context, r *runtime.RemoveImageRequ
 			}
 			return nil, errors.Wrapf(err, "failed to get image %q", tag)
 		}
-		desc, err := cImage.Config(ctx)
-		if err != nil {
-			// We can only get image id by reading Config from content.
-			// If the config is missing, we will fail to get image id,
-			// So we won't be able to remove the image forever,
-			// and the cri plugin always reports the image is ok.
-			// But we also don't check it by manifest,
-			// It's possible that two manifest digests have the same image ID in theory.
-			// In theory it's possible that an image is compressed with different algorithms,
-			// then they'll have the same uncompressed id - image id,
-			// but different ids generated from compressed contents - manifest digest.
-			// So we decide to leave it.
-			// After all, the user can override the repoTag by pulling image again.
-			logrus.WithError(err).Errorf("Can't remove image,failed to get config for Image tag %q,id %q", tag, image.ID)
-			image.RepoTags = append(image.RepoTags[:i], image.RepoTags[i+1:]...)
-			continue
-		}
-		cID := desc.Digest.String()
+		target := cImage.Target()
+		cID := target.Digest.String()
 		if cID != image.ID {
 			logrus.Debugf("Image tag %q for %q is outdated, it's currently used by %q", tag, image.ID, cID)
 			image.RepoTags = append(image.RepoTags[:i], image.RepoTags[i+1:]...)
