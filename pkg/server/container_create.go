@@ -334,6 +334,17 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		g.AddProcessEnv("TERM", "xterm")
 	}
 
+	// Add HOSTNAME env.
+	hostname := sandboxConfig.GetHostname()
+	if sandboxConfig.GetLinux().GetSecurityContext().GetNamespaceOptions().GetNetwork() == runtime.NamespaceMode_NODE &&
+		hostname == "" {
+		hostname, err = c.os.Hostname()
+		if err != nil {
+			return nil, err
+		}
+	}
+	g.AddProcessEnv(hostnameEnv, hostname)
+
 	// Apply envs from image config first, so that envs from container config
 	// can override them.
 	if err := addImageEnvs(&g, imageConfig.Env); err != nil {
@@ -342,8 +353,6 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	for _, e := range config.GetEnvs() {
 		g.AddProcessEnv(e.GetKey(), e.GetValue())
 	}
-	// add the HOSTNAME variable to the environment to match Docker runtime default
-	g.AddProcessEnv("HOSTNAME", sandboxConfig.GetHostname())
 
 	securityContext := config.GetLinux().GetSecurityContext()
 	selinuxOpt := securityContext.GetSelinuxOptions()
