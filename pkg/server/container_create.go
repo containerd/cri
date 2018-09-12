@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/contrib/apparmor"
 	"github.com/containerd/containerd/contrib/seccomp"
 	"github.com/containerd/containerd/mount"
@@ -33,6 +32,7 @@ import (
 	"github.com/containerd/containerd/runtime/linux/runctypes"
 	"github.com/containerd/typeurl"
 	"github.com/davecgh/go-spew/spew"
+	dockeroci "github.com/docker/docker/oci"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/runc/libcontainer/devices"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -305,10 +305,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxPid uint32, config *runtime.ContainerConfig,
 	sandboxConfig *runtime.PodSandboxConfig, imageConfig *imagespec.ImageConfig, extraMounts []*runtime.Mount) (*runtimespec.Spec, error) {
 	// Creates a spec Generator with the default spec.
-	spec, err := defaultRuntimeSpec(id)
-	if err != nil {
-		return nil, err
-	}
+	spec := defaultRuntimeSpec()
 	g := newSpecGenerator(spec)
 
 	// Set the relative path to the rootfs of the container from containerd's
@@ -331,6 +328,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	}
 
 	// Add HOSTNAME env.
+	var err error
 	hostname := sandboxConfig.GetHostname()
 	if sandboxConfig.GetLinux().GetSecurityContext().GetNamespaceOptions().GetNetwork() == runtime.NamespaceMode_NODE &&
 		hostname == "" {
@@ -626,14 +624,6 @@ func (c *criService) addOCIBindMounts(g *generate.Generator, mounts []*runtime.M
 	// shadow other mounts.
 	sort.Sort(orderedMounts(mounts))
 
-	// Mount cgroup into the container as readonly, which inherits docker's behavior.
-	g.AddMount(runtimespec.Mount{
-		Source:      "cgroup",
-		Destination: "/sys/fs/cgroup",
-		Type:        "cgroup",
-		Options:     []string{"nosuid", "noexec", "nodev", "relatime", "ro"},
-	})
-
 	// Copy all mounts from default mounts, except for
 	// - mounts overriden by supplied mount;
 	// - all mounts under /dev if a supplied /dev is present.
@@ -859,24 +849,12 @@ func setOCINamespaces(g *generate.Generator, namespaces *runtime.NamespaceOption
 }
 
 // defaultRuntimeSpec returns a default runtime spec used in cri-containerd.
-func defaultRuntimeSpec(id string) (*runtimespec.Spec, error) {
-	// GenerateSpec needs namespace.
-	ctx := ctrdutil.NamespacedContext()
-	spec, err := oci.GenerateSpec(ctx, nil, &containers.Container{ID: id})
-	if err != nil {
-		return nil, err
-	}
-
-	// Remove `/run` mount
+func defaultRuntimeSpec() *runtimespec.Spec {
+	spec := dockeroci.DefaultLinuxSpec()
+	spec.Root.Path = defaultRootfsPath
+	spec.Process.Cwd = defaultCwd
+	spec.Process.Env = []string{defaultUnixPathEnv}
 	// TODO(random-liu): Mount tmpfs for /run and handle copy-up.
-	var mounts []runtimespec.Mount
-	for _, mount := range spec.Mounts {
-		if mount.Destination == "/run" {
-			continue
-		}
-		mounts = append(mounts, mount)
-	}
-	spec.Mounts = mounts
 
 	// Make sure no default seccomp/apparmor is specified
 	if spec.Process != nil {
@@ -885,11 +863,7 @@ func defaultRuntimeSpec(id string) (*runtimespec.Spec, error) {
 	if spec.Linux != nil {
 		spec.Linux.Seccomp = nil
 	}
-
-	// Remove default rlimits (See issue #515)
-	spec.Process.Rlimits = nil
-
-	return spec, nil
+	return &spec
 }
 
 // generateSeccompSpecOpts generates containerd SpecOpts for seccomp.

@@ -119,6 +119,16 @@ const (
 	networkAttachCount = 2
 )
 
+// defaults for default runtime spec.
+const (
+	// defaultRootfsPath is the default rootfs path.
+	defaultRootfsPath = "rootfs"
+	// defaultCwd is the default work directory.
+	defaultCwd = "/"
+	// defaultUnixPathEnv is the PATH env.
+	defaultUnixPathEnv = "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+)
+
 // makeSandboxName generates sandbox name from sandbox metadata. The name
 // generated is unique as long as sandbox metadata is unique.
 func makeSandboxName(s *runtime.PodSandboxMetadata) string {

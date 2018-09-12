@@ -450,13 +450,12 @@ func TestContainerSpecCommand(t *testing.T) {
 	} {
 
 		config, _, imageConfig, _ := getCreateContainerTestData()
-		g, err := generate.New("linux")
-		assert.NoError(t, err)
+		g := generate.NewFromSpec(defaultRuntimeSpec())
 		config.Command = test.criEntrypoint
 		config.Args = test.criArgs
 		imageConfig.Entrypoint = test.imageEntrypoint
 		imageConfig.Cmd = test.imageArgs
-		err = setOCIProcessArgs(&g, config, imageConfig)
+		err := setOCIProcessArgs(&g, config, imageConfig)
 		if test.expectErr {
 			assert.Error(t, err)
 			continue
@@ -645,8 +644,7 @@ func TestPrivilegedBindMount(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		g, err := generate.New("linux")
-		assert.NoError(t, err)
+		g := generate.NewFromSpec(defaultRuntimeSpec())
 		c := newTestCRIService()
 		c.addOCIBindMounts(&g, nil, "")
 		if test.privileged {
@@ -754,11 +752,10 @@ func TestMountPropagation(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		g, err := generate.New("linux")
-		assert.NoError(t, err)
+		g := generate.NewFromSpec(defaultRuntimeSpec())
 		c := newTestCRIService()
 		c.os.(*ostesting.FakeOS).LookupMountFn = test.fakeLookupMountFn
-		err = c.addOCIBindMounts(&g, []*runtime.Mount{test.criMount}, "")
+		err := c.addOCIBindMounts(&g, []*runtime.Mount{test.criMount}, "")
 		if test.expectErr {
 			require.Error(t, err)
 		} else {
@@ -808,8 +805,7 @@ func TestPidNamespace(t *testing.T) {
 }
 
 func TestDefaultRuntimeSpec(t *testing.T) {
-	spec, err := defaultRuntimeSpec("test-id")
-	assert.NoError(t, err)
+	spec := defaultRuntimeSpec()
 	for _, mount := range spec.Mounts {
 		assert.NotEqual(t, "/run", mount.Destination)
 	}
@@ -944,8 +940,7 @@ func TestMaskedAndReadonlyPaths(t *testing.T) {
 	testPid := uint32(1234)
 	config, sandboxConfig, imageConfig, specCheck := getCreateContainerTestData()
 	c := newTestCRIService()
-	defaultSpec, err := defaultRuntimeSpec(testID)
-	require.NoError(t, err)
+	defaultSpec := defaultRuntimeSpec()
 	for desc, test := range map[string]struct {
 		masked           []string
 		readonly         []string
