@@ -1,3 +1,5 @@
+// +build !windows
+
 /*
    Copyright The containerd Authors.
 
@@ -14,16 +16,18 @@
    limitations under the License.
 */
 
-package version
+package commands
 
-var (
-	// Package is filled at linking time
-	Package = "github.com/containerd/containerd"
-
-	// Version holds the complete version number. Filled in at linking time.
-	Version = "1.1.3+unknown"
-
-	// Revision is filled with the VCS (e.g. git) revision being used to build
-	// the program at linking time.
-	Revision = ""
+import (
+	"github.com/urfave/cli"
 )
+
+func init() {
+	ContainerFlags = append(ContainerFlags, cli.BoolFlag{
+		Name:  "rootfs",
+		Usage: "use custom rootfs that is not managed by containerd snapshotter",
+	}, cli.BoolFlag{
+		Name:  "no-pivot",
+		Usage: "disable use of pivot-root (linux only)",
+	})
+}

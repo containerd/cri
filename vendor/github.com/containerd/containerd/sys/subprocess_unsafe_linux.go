@@ -14,16 +14,17 @@
    limitations under the License.
 */
 
-package version
+package sys
 
-var (
-	// Package is filled at linking time
-	Package = "github.com/containerd/containerd"
-
-	// Version holds the complete version number. Filled in at linking time.
-	Version = "1.1.3+unknown"
-
-	// Revision is filled with the VCS (e.g. git) revision being used to build
-	// the program at linking time.
-	Revision = ""
+import (
+	_ "unsafe" // required for go:linkname.
 )
+
+//go:linkname beforeFork syscall.runtime_BeforeFork
+func beforeFork()
+
+//go:linkname afterFork syscall.runtime_AfterFork
+func afterFork()
+
+//go:linkname afterForkInChild syscall.runtime_AfterForkInChild
+func afterForkInChild()
