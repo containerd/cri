@@ -111,18 +111,28 @@ func TestContainerListStats(t *testing.T) {
 		if err != nil {
 			return false, err
 		}
+		var count int
 		for _, s := range stats {
 			if s.GetWritableLayer().GetUsedBytes().GetValue() == 0 &&
 				s.GetWritableLayer().GetInodesUsed().GetValue() == 0 {
 				return false, nil
 			}
+			if containerConfigMap[s.GetAttributes().GetId()] != nil {
+				count++
+			}
+		}
+		if count != 3 {
+			return false, errors.New("did not get stats for all 3 containers")
 		}
 		return true, nil
 	}, time.Second, 30*time.Second))
 
 	t.Logf("Verify all container stats")
+
 	for _, s := range stats {
-		testStats(t, s, containerConfigMap[s.GetAttributes().GetId()])
+		if containerConfigMap[s.GetAttributes().GetId()] != nil {
+			testStats(t, s, containerConfigMap[s.GetAttributes().GetId()])
+		}
 	}
 }
 
