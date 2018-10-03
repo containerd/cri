@@ -101,10 +101,10 @@ func ConnectDaemons() error {
 	return nil
 }
 
-// Opts sets specific information in pod sandbox config.
+// PodSandboxOpts -  sets specific information in pod sandbox config.
 type PodSandboxOpts func(*runtime.PodSandboxConfig)
 
-// Set host network.
+// WithHostNetwork - Set host network.
 func WithHostNetwork(p *runtime.PodSandboxConfig) {
 	if p.Linux == nil {
 		p.Linux = &runtime.LinuxPodSandboxConfig{}
@@ -119,14 +119,14 @@ func WithHostNetwork(p *runtime.PodSandboxConfig) {
 	}
 }
 
-// Add pod log directory.
+// WithPodLogDirectory - Add pod log directory.
 func WithPodLogDirectory(dir string) PodSandboxOpts {
 	return func(p *runtime.PodSandboxConfig) {
 		p.LogDirectory = dir
 	}
 }
 
-// Add pod hostname.
+// WithPodHostname - Add pod hostname.
 func WithPodHostname(hostname string) PodSandboxOpts {
 	return func(p *runtime.PodSandboxConfig) {
 		p.Hostname = hostname
@@ -155,19 +155,28 @@ func PodSandboxConfig(name, ns string, opts ...PodSandboxOpts) *runtime.PodSandb
 // annotations, metadata etc
 type ContainerOpts func(*runtime.ContainerConfig)
 
+// WithTestLabels -
 func WithTestLabels() ContainerOpts {
 	return func(c *runtime.ContainerConfig) {
-		c.Labels = map[string]string{"key": "value"}
+		c.Labels = map[string]string{
+			Randomize("lbl-key"): Randomize("lbl-value"),
+			Randomize("lbl-key"): Randomize("lbl-value"),
+		}
 	}
 }
 
+// WithTestAnnotations -
 func WithTestAnnotations() ContainerOpts {
 	return func(c *runtime.ContainerConfig) {
-		c.Annotations = map[string]string{"a.b.c": "test"}
+		c.Annotations = map[string]string{
+			Randomize("antn-key"): Randomize("antn-value"),
+			Randomize("antn-key"): Randomize("antn-value"),
+			Randomize("antn-key"): Randomize("antn-value"),
+		}
 	}
 }
 
-// Add container resource limits.
+// WithResources - Add container resource limits.
 func WithResources(r *runtime.LinuxContainerResources) ContainerOpts {
 	return func(c *runtime.ContainerConfig) {
 		if c.Linux == nil {
@@ -177,7 +186,7 @@ func WithResources(r *runtime.LinuxContainerResources) ContainerOpts {
 	}
 }
 
-// Add container command.
+// WithCommand - Add container command.
 func WithCommand(cmd string, args ...string) ContainerOpts {
 	return func(c *runtime.ContainerConfig) {
 		c.Command = []string{cmd}
@@ -185,7 +194,7 @@ func WithCommand(cmd string, args ...string) ContainerOpts {
 	}
 }
 
-// Add pid namespace mode.
+// WithPidNamespace - Add pid namespace mode.
 func WithPidNamespace(mode runtime.NamespaceMode) ContainerOpts {
 	return func(c *runtime.ContainerConfig) {
 		if c.Linux == nil {
@@ -202,7 +211,7 @@ func WithPidNamespace(mode runtime.NamespaceMode) ContainerOpts {
 
 }
 
-// Add container log path.
+// WithLogPath - Add container log path.
 func WithLogPath(path string) ContainerOpts {
 	return func(c *runtime.ContainerConfig) {
 		c.LogPath = path
