@@ -76,12 +76,15 @@ func init() {
 // CreateContainer creates a new container in the given PodSandbox.
 func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateContainerRequest) (_ *runtime.CreateContainerResponse, retErr error) {
 	config := r.GetConfig()
-	sandboxConfig := r.GetSandboxConfig()
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find sandbox id %q", r.GetPodSandboxId())
 	}
 	sandboxID := sandbox.ID
+	// PodSandboxConfig on `r` is optionally passed by convention. But it must
+	// be the same as the original request so just use the cached version in all
+	// cases.
+	sandboxConfig := sandbox.Config
 	s, err := sandbox.Container.Task(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get sandbox container task")
