@@ -130,7 +130,7 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		// In this case however caching the IP will add a subtle performance enhancement by avoiding
 		// calls to network namespace of the pod to query the IP of the veth interface on every
 		// SandboxStatus request.
-		sandbox.IP, sandbox.CNIResult, err = c.setupPod(id, sandbox.NetNSPath, config)
+		sandbox.IP, sandbox.CNIResult, sandbox.CNIConfig, err = c.setupPod(id, sandbox.NetNSPath, config)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to setup network for sandbox %q", id)
 		}
@@ -547,9 +547,9 @@ func (c *criService) unmountSandboxFiles(id string, config *runtime.PodSandboxCo
 }
 
 // setupPod setups up the network for a pod
-func (c *criService) setupPod(id string, path string, config *runtime.PodSandboxConfig) (string, *cni.CNIResult, error) {
+func (c *criService) setupPod(id string, path string, config *runtime.PodSandboxConfig) (string, *cni.CNIResult, *cni.ConfigResult, error) {
 	if c.netPlugin == nil {
-		return "", nil, errors.New("cni config not initialized")
+		return "", nil, nil, errors.New("cni config not initialized")
 	}
 
 	labels := getPodCNILabels(id, config)
@@ -558,18 +558,19 @@ func (c *criService) setupPod(id string, path string, config *runtime.PodSandbox
 		cni.WithLabels(labels),
 		cni.WithCapabilityPortMap(toCNIPortMappings(config.GetPortMappings())))
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
-	logDebugCNIResult(id, result)
+	confResult := c.netPlugin.GetConfig()
+	logDebugCNIResult(id, result, confResult)
 	// Check if the default interface has IP config
 	if configs, ok := result.Interfaces[defaultIfName]; ok && len(configs.IPConfigs) > 0 {
-		return selectPodIP(configs.IPConfigs), result, nil
+		return selectPodIP(configs.IPConfigs), result, confResult, nil
 	}
 	// If it comes here then the result was invalid so destroy the pod network and return error
 	if err := c.teardownPod(id, path, config); err != nil {
 		logrus.WithError(err).Errorf("Failed to destroy network for sandbox %q", id)
 	}
-	return "", result, errors.Errorf("failed to find network info for sandbox %q", id)
+	return "", result, confResult, errors.Errorf("failed to find network info for sandbox %q", id)
 }
 
 // toCNIPortMappings converts CRI port mappings to CNI.
@@ -660,10 +661,16 @@ func (c *criService) getSandboxRuntime(config *runtime.PodSandboxConfig, runtime
 	return handler, nil
 }
 
-func logDebugCNIResult(sandboxID string, result *cni.CNIResult) {
+func logDebugCNIResult(sandboxID string, result *cni.CNIResult, confResult *cni.ConfigResult) {
 	if logrus.GetLevel() < logrus.DebugLevel {
 		return
 	}
+	cniConfig, err := json.Marshal(confResult)
+	if err != nil {
+		logrus.WithError(err).Errorf("Failed to marshal CNI config for sandbox %q: %v", sandboxID, err)
+		return
+	}
+	logrus.Debugf("cni config for sandbox %q: %s", sandboxID, string(cniConfig))
 	cniResult, err := json.Marshal(result)
 	if err != nil {
 		logrus.WithError(err).Errorf("Failed to marshal CNI result for sandbox %q: %v", sandboxID, err)

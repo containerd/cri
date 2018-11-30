@@ -119,6 +119,7 @@ type SandboxInfo struct {
 	Config         *runtime.PodSandboxConfig `json:"config"`
 	RuntimeSpec    *runtimespec.Spec         `json:"runtimeSpec"`
 	CNIResult      *cni.CNIResult            `json:"cniResult"`
+	CNIConfig      *cni.ConfigResult         `json:"cniConfig"`
 }
 
 // toCRISandboxInfo converts internal container object information to CRI sandbox status response info map.
@@ -144,6 +145,7 @@ func toCRISandboxInfo(ctx context.Context, sandbox sandboxstore.Sandbox) (map[st
 		RuntimeHandler: sandbox.RuntimeHandler,
 		Status:         string(processStatus),
 		Config:         sandbox.Config,
+		CNIConfig:      sandbox.CNIConfig,
 		CNIResult:      sandbox.CNIResult,
 	}
 

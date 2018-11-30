@@ -57,8 +57,10 @@ type Metadata struct {
 	IP string
 	// RuntimeHandler is the runtime handler name of the pod.
 	RuntimeHandler string
-	// CNI result
+	// CNIResult resulting configuration for attached network namespace interfaces
 	CNIResult *cni.CNIResult
+	// CNIConfig paths and conflists for plugins used to create CNIResult
+	CNIConfig *cni.ConfigResult
 }
 
 // MarshalJSON encodes Metadata into bytes in json format.
