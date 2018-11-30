@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	cnilibrary "github.com/containernetworking/cni/libcni"
+	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/pkg/errors"
 )
@@ -35,6 +36,34 @@ type CNI interface {
 	Load(opts ...CNIOpt) error
 	// Status checks the status of the cni initialization
 	Status() error
+	// GetConfig returns a copy of the CNI plugin configurations as parsed by CNI
+	GetConfig() *ConfigResult
+}
+
+type ConfigResult struct {
+	PluginDirs    []string
+	PluginConfDir string
+	Prefix        string
+	Networks      []*ConfNetwork
+}
+
+type ConfNetwork struct {
+	Config *NetworkConfList
+	IFName string
+}
+
+// NetworkConfList is a source bytes to string version of cnilibrary.NetworkConfigList
+type NetworkConfList struct {
+	Name       string
+	CNIVersion string
+	Plugins    []*NetworkConf
+	Source     string
+}
+
+// NetworkConf is a source bytes to string conversion of cnilibrary.NetworkConfig
+type NetworkConf struct {
+	Network *types.NetConf
+	Source  string
 }
 
 type libcni struct {
@@ -141,6 +170,35 @@ func (c *libcni) Remove(id string, path string, opts ...NamespaceOpts) error {
 		}
 	}
 	return nil
+}
+
+// GetConfig returns a copy of the CNI plugin configurations as parsed by CNI
+func (c *libcni) GetConfig() *ConfigResult {
+	c.RLock()
+	defer c.RUnlock()
+	r := &ConfigResult{
+		PluginDirs:    c.config.pluginDirs,
+		PluginConfDir: c.config.pluginConfDir,
+		Prefix:        c.config.prefix,
+	}
+	for _, network := range c.networks {
+		conf := &NetworkConfList{
+			Name:       network.config.Name,
+			CNIVersion: network.config.CNIVersion,
+			Source:     string(network.config.Bytes),
+		}
+		for _, plugin := range network.config.Plugins {
+			conf.Plugins = append(conf.Plugins, &NetworkConf{
+				Network: plugin.Network,
+				Source:  string(plugin.Bytes),
+			})
+		}
+		r.Networks = append(r.Networks, &ConfNetwork{
+			Config: conf,
+			IFName: network.ifName,
+		})
+	}
+	return r
 }
 
 func (c *libcni) reset() {
