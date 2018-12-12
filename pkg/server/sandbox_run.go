@@ -99,6 +99,13 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get sandbox image %q", c.config.SandboxImage)
 	}
+	// Lease the image, so that the image won't be removed when the sandbox container
+	// is being created.
+	if err := image.Lease(); err != nil {
+		return nil, errors.Wrapf(err, "lease image %q", c.config.SandboxImage)
+	}
+	defer image.Unlease() // nolint: errcheck
+
 	containerdImage, err := c.toContainerdImage(ctx, *image)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get image from containerd %q", image.ID)

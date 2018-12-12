@@ -114,6 +114,13 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to resolve image %q", config.GetImage().GetImage())
 	}
+	// Lease the image, so that the image won't be removed when the container
+	// is being created.
+	if err := image.Lease(); err != nil {
+		return nil, errors.Wrapf(err, "lease image %q", config.GetImage().GetImage())
+	}
+	defer image.Unlease() // nolint: errcheck
+
 	containerdImage, err := c.toContainerdImage(ctx, image)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get image from containerd %q", image.ID)

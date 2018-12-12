@@ -47,6 +47,10 @@ type Image struct {
 	Size int64
 	// ImageSpec is the oci image structure which describes basic information about the image.
 	ImageSpec imagespec.Image
+	// leases tracks all leases of the image. Image with non-zero lease
+	// can't be removed. Unleasable image can't be used for new container
+	// creation.
+	*leases
 }
 
 // Store stores all images.
@@ -150,6 +154,7 @@ func getImage(ctx context.Context, i containerd.Image) (*Image, error) {
 		ChainID:    chainID.String(),
 		Size:       size,
 		ImageSpec:  ociimage,
+		leases:     newLeases(),
 	}, nil
 }
 

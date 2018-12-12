@@ -42,6 +42,34 @@ func (c *criService) RemoveImage(ctx context.Context, r *runtime.RemoveImageRequ
 		return nil, errors.Wrapf(err, "can not resolve %q locally", r.GetImage().GetImage())
 	}
 
+	// Make sure the image is not used by any containers.
+	//
+	// In fact, a running container only depends on its snapshot, the image
+	// (metadata + content) doesn't necessarily need to be preserved.
+	// However, we still try to preserve the image when a container uses
+	// it, mainly because:
+	// 1) Docker behaves like this, we'd like to keep the same behavior.
+	// 2) Some container operations does need the image metadata, e.g. ContainerStatus.
+	// We can revisit this behavior in the future.
+	//
+	// We are not checking sandbox image, because it is fine to remove it.
+	// No sandbox lifecycle operations directly depend on it, and it will
+	// be repulled when running a new sandbox.
+	for _, c := range c.containerStore.List() {
+		if c.ImageRef == image.ID {
+			return nil, errors.Errorf("image is used by container %q", c.ID)
+		}
+	}
+
+	// Mark the image nonleasable so that no new containers can be created.
+	// This is used to avoid the race condition between container creation and
+	// image removal. Or else a container may be created after we check containers
+	// using the image.
+	if err := image.SetNonleasable(true); err != nil {
+		return nil, errors.Wrapf(err, "set image nonleasable")
+	}
+	defer image.SetNonleasable(false) // nolint: errcheck
+
 	// Remove all image references.
 	for i, ref := range image.References {
 		var opts []images.DeleteOpt
