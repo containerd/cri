@@ -61,9 +61,23 @@ func TestPodHostname(t *testing.T) {
 			require.NoError(t, err)
 			defer os.RemoveAll(testPodLogDir)
 
-			opts := append(test.opts, WithPodLogDirectory(testPodLogDir))
+			const (
+				testImage     = "busybox"
+				containerName = "test-container"
+			)
+			var (
+				opts     = append(test.opts, WithPodLogDirectory(testPodLogDir))
+				sbConfig = PodSandboxConfig("sandbox", "hostname", opts...)
+			)
+
+			t.Logf("Pull test image %q", testImage)
+			img, err := imageService.PullImage(&runtime.ImageSpec{Image: testImage}, nil, sbConfig)
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, imageService.RemoveImage(&runtime.ImageSpec{Image: img}))
+			}()
+
 			t.Log("Create a sandbox with hostname")
-			sbConfig := PodSandboxConfig("sandbox", "hostname", opts...)
 			sb, err := runtimeService.RunPodSandbox(sbConfig, *runtimeHandler)
 			if err != nil {
 				if !test.expectErr {
@@ -80,17 +94,6 @@ func TestPodHostname(t *testing.T) {
 					t.Fatalf("Expected RunPodSandbox to return error")
 				}
 			}
-
-			const (
-				testImage     = "busybox"
-				containerName = "test-container"
-			)
-			t.Logf("Pull test image %q", testImage)
-			img, err := imageService.PullImage(&runtime.ImageSpec{Image: testImage}, nil, sbConfig)
-			require.NoError(t, err)
-			defer func() {
-				assert.NoError(t, imageService.RemoveImage(&runtime.ImageSpec{Image: img}))
-			}()
 
 			t.Log("Create a container to print env")
 			cnConfig := ContainerConfig(

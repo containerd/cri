@@ -33,20 +33,13 @@ func TestAdditionalGids(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(testPodLogDir)
 
-	t.Log("Create a sandbox with log directory")
-	sbConfig := PodSandboxConfig("sandbox", "additional-gids",
-		WithPodLogDirectory(testPodLogDir))
-	sb, err := runtimeService.RunPodSandbox(sbConfig, *runtimeHandler)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
-
 	const (
 		testImage     = "busybox"
 		containerName = "test-container"
 	)
+	var sbConfig = PodSandboxConfig("sandbox", "additional-gids",
+		WithPodLogDirectory(testPodLogDir))
+
 	t.Logf("Pull test image %q", testImage)
 	img, err := imageService.PullImage(&runtime.ImageSpec{Image: testImage}, nil, sbConfig)
 	require.NoError(t, err)
@@ -54,10 +47,18 @@ func TestAdditionalGids(t *testing.T) {
 		assert.NoError(t, imageService.RemoveImage(&runtime.ImageSpec{Image: img}))
 	}()
 
+	t.Log("Create a sandbox with log directory")
+	sb, err := runtimeService.RunPodSandbox(sbConfig, *runtimeHandler)
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, runtimeService.StopPodSandbox(sb))
+		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
+	}()
+
 	t.Log("Create a container to print id")
 	cnConfig := ContainerConfig(
 		containerName,
-		"busybox",
+		testImage,
 		WithCommand("id"),
 		WithLogPath(containerName),
 		WithSupplementalGroups([]int64{1 /*daemon*/, 1234 /*new group*/}),

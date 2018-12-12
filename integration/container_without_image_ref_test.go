@@ -17,6 +17,7 @@ limitations under the License.
 package integration
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,8 +57,12 @@ func TestContainerLifecycleWithoutImageRef(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, runtimeService.StartContainer(cn))
 
-	t.Log("Remove test image")
-	assert.NoError(t, imageService.RemoveImage(&runtime.ImageSpec{Image: img}))
+	t.Log("Remove all test image references from containerd")
+	is, err := imageService.ImageStatus(&runtime.ImageSpec{Image: img})
+	require.NoError(t, err)
+	for _, ref := range append(append([]string{is.Id}, is.RepoTags...), is.RepoDigests...) {
+		require.NoError(t, containerdClient.ImageService().Delete(context.Background(), ref))
+	}
 
 	t.Log("Container status should be running")
 	status, err := runtimeService.ContainerStatus(cn)

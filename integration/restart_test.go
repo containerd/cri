@@ -209,7 +209,7 @@ func TestUnknownStateAfterContainerdRestart(t *testing.T) {
 		t.Skip("unsupported config: runc not in PATH")
 	}
 
-	sbConfig := PodSandboxConfig("sandbox", "sandbox-unknown-state")
+	var sbConfig = PodSandboxConfig("sandbox", "sandbox-unknown-state")
 
 	const testImage = "busybox"
 	t.Logf("Pull test image %q", testImage)

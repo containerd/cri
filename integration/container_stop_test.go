@@ -32,14 +32,6 @@ func TestSharedPidMultiProcessContainerStop(t *testing.T) {
 		"podpid":  PodSandboxConfig("sandbox", "pod-pid-container-stop", WithPodPid),
 	} {
 		t.Run(name, func(t *testing.T) {
-			t.Log("Create a shared pid sandbox")
-			sb, err := runtimeService.RunPodSandbox(sbConfig, *runtimeHandler)
-			require.NoError(t, err)
-			defer func() {
-				assert.NoError(t, runtimeService.StopPodSandbox(sb))
-				assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-			}()
-
 			const (
 				testImage     = "busybox"
 				containerName = "test-container"
@@ -49,6 +41,14 @@ func TestSharedPidMultiProcessContainerStop(t *testing.T) {
 			require.NoError(t, err)
 			defer func() {
 				assert.NoError(t, imageService.RemoveImage(&runtime.ImageSpec{Image: img}))
+			}()
+
+			t.Log("Create a shared pid sandbox")
+			sb, err := runtimeService.RunPodSandbox(sbConfig, *runtimeHandler)
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, runtimeService.StopPodSandbox(sb))
+				assert.NoError(t, runtimeService.RemovePodSandbox(sb))
 			}()
 
 			t.Log("Create a multi-process container")
@@ -75,24 +75,25 @@ func TestSharedPidMultiProcessContainerStop(t *testing.T) {
 }
 
 func TestContainerStopCancellation(t *testing.T) {
-	t.Log("Create a pod sandbox")
-	sbConfig := PodSandboxConfig("sandbox", "cancel-container-stop")
-	sb, err := runtimeService.RunPodSandbox(sbConfig, *runtimeHandler)
-	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, runtimeService.StopPodSandbox(sb))
-		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
-	}()
-
 	const (
 		testImage     = "busybox"
 		containerName = "test-container"
 	)
+	var sbConfig = PodSandboxConfig("sandbox", "cancel-container-stop")
+
 	t.Logf("Pull test image %q", testImage)
 	img, err := imageService.PullImage(&runtime.ImageSpec{Image: testImage}, nil, sbConfig)
 	require.NoError(t, err)
 	defer func() {
 		assert.NoError(t, imageService.RemoveImage(&runtime.ImageSpec{Image: img}))
+	}()
+
+	t.Log("Create a pod sandbox")
+	sb, err := runtimeService.RunPodSandbox(sbConfig, *runtimeHandler)
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, runtimeService.StopPodSandbox(sb))
+		assert.NoError(t, runtimeService.RemovePodSandbox(sb))
 	}()
 
 	t.Log("Create a container which traps sigterm")
