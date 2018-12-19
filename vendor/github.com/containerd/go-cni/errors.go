@@ -13,7 +13,7 @@ var (
 	ErrLoad              = errors.New("failed to load cni config")
 )
 
-// IsCNINotInitialized returns true if the error is due cni config not being intialized
+// IsCNINotInitialized returns true if the error is due cni config not being initialized
 func IsCNINotInitialized(err error) bool {
 	return errors.Cause(err) == ErrCNINotInitialized
 }
