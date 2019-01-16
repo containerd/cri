@@ -7,11 +7,11 @@ With containerd, `docker.io` is the default image registry. You can also set up 
 To configure image registries create/modify the `/etc/containerd/config.toml` as follows:
 ```toml
 [plugins.cri.registry.mirrors]
-  [plugins.cri.registry.mirrors."docker.io"]
+  [plugins.cri.registry.mirrors."registry-1.docker.io"]
     endpoint = ["https://registry-1.docker.io"]
-  [plugins.cri.registry.mirrors."test.secure-registry.io"]
+  [plugins.cri.registry.mirrors."HostIP1:Port1"]
     endpoint = ["https://HostIP1:Port1"]
-  [plugins.cri.registry.mirrors."test.insecure-registry.io"]
+  [plugins.cri.registry.mirrors."HostIP2:Port2"]
     endpoint = ["http://HostIP2:Port2"]
 ```
 
