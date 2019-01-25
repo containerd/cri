@@ -106,11 +106,11 @@ func convertEvent(e *gogotypes.Any) (string, interface{}, error) {
 		return "", nil, errors.Wrap(err, "failed to unmarshalany")
 	}
 
-	switch evt.(type) {
+	switch e := evt.(type) {
 	case *eventtypes.TaskExit:
-		containerID = evt.(*eventtypes.TaskExit).ContainerID
+		containerID = e.ContainerID
 	case *eventtypes.TaskOOM:
-		containerID = evt.(*eventtypes.TaskOOM).ContainerID
+		containerID = e.ContainerID
 	default:
 		return "", nil, errors.New("unsupported event")
 	}
@@ -185,13 +185,12 @@ func (em *eventMonitor) stop() {
 // handleEvent handles a containerd event.
 func (em *eventMonitor) handleEvent(any interface{}) error {
 	ctx := ctrdutil.NamespacedContext()
-	switch any.(type) {
+	switch e := any.(type) {
 	// If containerd-shim exits unexpectedly, there will be no corresponding event.
 	// However, containerd could not retrieve container state in that case, so it's
 	// fine to leave out that case for now.
 	// TODO(random-liu): [P2] Handle containerd-shim exit.
 	case *eventtypes.TaskExit:
-		e := any.(*eventtypes.TaskExit)
 		cntr, err := em.containerStore.Get(e.ContainerID)
 		if err == nil {
 			if err := handleContainerExit(ctx, e, cntr); err != nil {
@@ -213,7 +212,6 @@ func (em *eventMonitor) handleEvent(any interface{}) error {
 		}
 		return nil
 	case *eventtypes.TaskOOM:
-		e := any.(*eventtypes.TaskOOM)
 		logrus.Infof("TaskOOM event %+v", e)
 		cntr, err := em.containerStore.Get(e.ContainerID)
 		if err != nil {
