@@ -451,7 +451,7 @@ func TestContainerSpecCommand(t *testing.T) {
 	} {
 
 		config, _, imageConfig, _ := getCreateContainerTestData()
-		g := generate.New()
+		g := newCustomGenerator(generate.New())
 		config.Command = test.criEntrypoint
 		config.Args = test.criArgs
 		imageConfig.Entrypoint = test.imageEntrypoint
@@ -652,7 +652,7 @@ func TestPrivilegedBindMount(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		g := generate.New()
+		g := newCustomGenerator(generate.New())
 		g.SetRootReadonly(test.readonlyRootFS)
 		c := newTestCRIService()
 		c.addOCIBindMounts(&g, nil, "")
@@ -761,7 +761,7 @@ func TestMountPropagation(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		g := generate.New()
+		g := newCustomGenerator(generate.New())
 		c := newTestCRIService()
 		c.os.(*ostesting.FakeOS).LookupMountFn = test.fakeLookupMountFn
 		err := c.addOCIBindMounts(&g, []*runtime.Mount{test.criMount}, "")
