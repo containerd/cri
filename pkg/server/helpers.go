@@ -446,10 +446,18 @@ type generator struct {
 }
 
 func newCustomGenerator(g generate.Generator) generator {
-	return generator{
+	cg := generator{
 		Generator: g,
 		envCache:  make(map[string]int),
 	}
+	spec := g.Spec()
+	if spec != nil && spec.Process != nil {
+		for i, env := range spec.Process.Env {
+			kv := strings.SplitN(env, "=", 2)
+			cg.envCache[kv[0]] = i
+		}
+	}
+	return cg
 }
 
 // AddProcessEnv overrides the original AddProcessEnv. It uses
