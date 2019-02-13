@@ -24,6 +24,7 @@ import (
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/linux/runctypes"
 	imagedigest "github.com/opencontainers/go-digest"
+	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
@@ -212,4 +213,88 @@ func TestOrderedMounts(t *testing.T) {
 	}
 	sort.Stable(orderedMounts(mounts))
 	assert.Equal(t, expected, mounts)
+}
+
+func TestCustomGenerator(t *testing.T) {
+	for desc, test := range map[string]struct {
+		existing  []string
+		kv        [][2]string
+		expected  []string
+		expectNil bool
+	}{
+		"empty": {
+			expectNil: true,
+		},
+		"single env": {
+			kv: [][2]string{
+				{"a", "b"},
+			},
+			expected: []string{"a=b"},
+		},
+		"multiple envs": {
+			kv: [][2]string{
+				{"a", "b"},
+				{"c", "d"},
+				{"e", "f"},
+			},
+			expected: []string{
+				"a=b",
+				"c=d",
+				"e=f",
+			},
+		},
+		"env override": {
+			kv: [][2]string{
+				{"k1", "v1"},
+				{"k2", "v2"},
+				{"k3", "v3"},
+				{"k3", "v4"},
+				{"k1", "v5"},
+				{"k4", "v6"},
+			},
+			expected: []string{
+				"k1=v5",
+				"k2=v2",
+				"k3=v4",
+				"k4=v6",
+			},
+		},
+		"existing env": {
+			existing: []string{
+				"k1=v1",
+				"k2=v2",
+				"k3=v3",
+			},
+			kv: [][2]string{
+				{"k3", "v4"},
+				{"k2", "v5"},
+				{"k4", "v6"},
+			},
+			expected: []string{
+				"k1=v1",
+				"k2=v5",
+				"k3=v4",
+				"k4=v6",
+			},
+		},
+	} {
+		t.Logf("TestCase %q", desc)
+		var spec *runtimespec.Spec
+		if len(test.existing) > 0 {
+			spec = &runtimespec.Spec{
+				Process: &runtimespec.Process{
+					Env: test.existing,
+				},
+			}
+		}
+		g := newSpecGenerator(spec)
+		for _, kv := range test.kv {
+			g.AddProcessEnv(kv[0], kv[1])
+		}
+		if test.expectNil {
+			assert.Nil(t, g.Spec())
+		} else {
+			assert.Equal(t, test.expected, g.Spec().Process.Env)
+		}
+	}
 }
