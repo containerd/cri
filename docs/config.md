@@ -32,12 +32,6 @@ The explanation and default value of each configuration item are as follows:
   # stats_collect_period is the period (in seconds) of snapshots stats collection.
   stats_collect_period = 10
 
-  # systemd_cgroup enables systemd cgroup support. This only works for runtime
-  # type "io.containerd.runtime.v1.linux".
-  # DEPRECATED: use Runtime.Options for runtime specific config for shim v2 runtimes.
-  #   For runtime "io.containerd.runc.v1", use the option `SystemdCgroup`.
-  systemd_cgroup = false
-
   # enable_tls_streaming enables the TLS streaming support.
   # It generates a self-sign certificate unless the following x509_key_pair_streaming are both set.
   enable_tls_streaming = false
@@ -85,24 +79,9 @@ The explanation and default value of each configuration item are as follows:
       # runtime_type is the runtime type to use in containerd e.g. io.containerd.runtime.v1.linux
       runtime_type = "io.containerd.runtime.v1.linux"
 
-      # runtime_engine is the name of the runtime engine used by containerd.
-      # This only works for runtime type "io.containerd.runtime.v1.linux".
-      # DEPRECATED: use Runtime.Options for runtime specific config for shim v2 runtimes.
-      #   For runtime "io.containerd.runc.v1", use the option `BinaryName`.
-      runtime_engine = ""
-
-      # runtime_root is the directory used by containerd for runtime state.
-      # This only works for runtime type "io.containerd.runtime.v1.linux".
-      # DEPRECATED: use Runtime.Options for runtime specific config for shim v2 runtimes.
-      #   For runtime "io.containerd.runc.v1", use the option `Root`.
-      runtime_root = ""
-
       # "plugins.cri.containerd.default_runtime.options" is options specific to
       # the default runtime. The options type for "io.containerd.runtime.v1.linux" is:
       #   https://github.com/containerd/containerd/blob/v1.2.0-rc.1/runtime/linux/runctypes/runc.pb.go#L40
-      # NOTE: when `options` is specified, all related deprecated options will
-      #   be ignored, including `systemd_cgroup`, `no_pivot`, `runtime_engine`
-      #   and `runtime_root`.
       [plugins.cri.containerd.default_runtime.options]
         # Runtime is the binary name of the runtime.
         Runtime = ""
@@ -115,21 +94,6 @@ The explanation and default value of each configuration item are as follows:
 
         # SystemdCgroup enables systemd cgroups.
         SystemdCgroup = false
-
-    # "plugins.cri.containerd.untrusted_workload_runtime" is a runtime to run untrusted workloads on it.
-    # DEPRECATED: use plugins.cri.runtimes instead. If provided, this runtime is mapped to the
-    #   runtime handler named 'untrusted'. It is a configuration error to provide both the (now
-    #   deprecated) UntrustedWorkloadRuntime and a handler in the Runtimes handler map (below) for
-    #   'untrusted' workloads at the same time. Please provide one or the other.
-    [plugins.cri.containerd.untrusted_workload_runtime]
-      # runtime_type is the runtime type to use in containerd e.g. io.containerd.runtime.v1.linux
-      runtime_type = ""
-
-      # runtime_engine is the name of the runtime engine used by containerd.
-      runtime_engine = ""
-
-      # runtime_root is the directory used by containerd for runtime state.
-      runtime_root = ""
 
     # plugins.cri.containerd.runtimes is a map from CRI RuntimeHandler strings, which specify types
     # of runtime configurations, to the matching configurations. In this example,

@@ -27,14 +27,6 @@ import (
 type Runtime struct {
 	// Type is the runtime type to use in containerd e.g. io.containerd.runtime.v1.linux
 	Type string `toml:"runtime_type" json:"runtimeType"`
-	// Engine is the name of the runtime engine used by containerd.
-	// This only works for runtime type "io.containerd.runtime.v1.linux".
-	// DEPRECATED: use Options instead. Remove when shim v1 is deprecated.
-	Engine string `toml:"runtime_engine" json:"runtimeEngine"`
-	// Root is the directory used by containerd for runtime state.
-	// DEPRECATED: use Options instead. Remove when shim v1 is deprecated.
-	// This only works for runtime type "io.containerd.runtime.v1.linux".
-	Root string `toml:"runtime_root" json:"runtimeRoot"`
 	// Options are config options for the runtime. If options is loaded
 	// from toml config, it will be toml.Primitive.
 	Options *toml.Primitive `toml:"options" json:"options"`
@@ -47,12 +39,6 @@ type ContainerdConfig struct {
 	// DefaultRuntime is the default runtime to use in containerd.
 	// This runtime is used when no runtime handler (or the empty string) is provided.
 	DefaultRuntime Runtime `toml:"default_runtime" json:"defaultRuntime"`
-	// UntrustedWorkloadRuntime is a runtime to run untrusted workloads on it.
-	// DEPRECATED: use Runtimes instead. If provided, this runtime is mapped to the runtime handler
-	//     named 'untrusted'. It is a configuration error to provide both the (now deprecated)
-	//     UntrustedWorkloadRuntime and a handler in the Runtimes handler map (below) for 'untrusted'
-	//     workloads at the same time. Please provide one or the other.
-	UntrustedWorkloadRuntime Runtime `toml:"untrusted_workload_runtime" json:"untrustedWorkloadRuntime"`
 	// Runtimes is a map from CRI RuntimeHandler strings, which specify types of runtime
 	// configurations, to the matching configurations.
 	Runtimes map[string]Runtime `toml:"runtimes" json:"runtimes"`
@@ -136,10 +122,6 @@ type PluginConfig struct {
 	SandboxImage string `toml:"sandbox_image" json:"sandboxImage"`
 	// StatsCollectPeriod is the period (in seconds) of snapshots stats collection.
 	StatsCollectPeriod int `toml:"stats_collect_period" json:"statsCollectPeriod"`
-	// SystemdCgroup enables systemd cgroup support.
-	// This only works for runtime type "io.containerd.runtime.v1.linux".
-	// DEPRECATED: config runc runtime handler instead. Remove when shim v1 is deprecated.
-	SystemdCgroup bool `toml:"systemd_cgroup" json:"systemdCgroup"`
 	// EnableTLSStreaming indicates to enable the TLS streaming support.
 	EnableTLSStreaming bool `toml:"enable_tls_streaming" json:"enableTLSStreaming"`
 	// X509KeyPairStreaming is a x509 key pair used for TLS streaming
@@ -194,9 +176,7 @@ func DefaultConfig() PluginConfig {
 		ContainerdConfig: ContainerdConfig{
 			Snapshotter: containerd.DefaultSnapshotter,
 			DefaultRuntime: Runtime{
-				Type:   "io.containerd.runtime.v1.linux",
-				Engine: "",
-				Root:   "",
+				Type: "io.containerd.runtime.v1.linux",
 			},
 			NoPivot: false,
 		},
@@ -211,7 +191,6 @@ func DefaultConfig() PluginConfig {
 		},
 		SandboxImage:            "k8s.gcr.io/pause:3.1",
 		StatsCollectPeriod:      10,
-		SystemdCgroup:           false,
 		MaxContainerLogLineSize: 16 * 1024,
 		Registry: Registry{
 			Mirrors: map[string]Mirror{

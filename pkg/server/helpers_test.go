@@ -240,7 +240,6 @@ func TestLocalResolve(t *testing.T) {
 
 func TestGenerateRuntimeOptions(t *testing.T) {
 	nilOpts := `
-systemd_cgroup = true
 [containerd]
   no_pivot = true
 [containerd.default_runtime]
@@ -249,7 +248,6 @@ systemd_cgroup = true
   runtime_type = "` + runcRuntime + `"
 `
 	nonNilOpts := `
-systemd_cgroup = true
 [containerd]
   no_pivot = true
 [containerd.default_runtime]
@@ -277,17 +275,15 @@ systemd_cgroup = true
 		c               criconfig.Config
 		expectedOptions interface{}
 	}{
-		"when options is nil, should return nil option for non legacy runtime": {
+		"when options is nil, should return empty option for non legacy runtime": {
 			r:               nilOptsConfig.Runtimes["runc"],
 			c:               nilOptsConfig,
-			expectedOptions: nil,
+			expectedOptions: &runcoptions.Options{},
 		},
-		"when options is nil, should use legacy fields for legacy runtime": {
-			r: nilOptsConfig.DefaultRuntime,
-			c: nilOptsConfig,
-			expectedOptions: &runctypes.RuncOptions{
-				SystemdCgroup: true,
-			},
+		"when options is nil, should return empty option for legacy runtime as well": {
+			r:               nilOptsConfig.DefaultRuntime,
+			c:               nilOptsConfig,
+			expectedOptions: &runctypes.RuncOptions{},
 		},
 		"when options is not nil, should be able to decode for io.containerd.runc.v1": {
 			r: nonNilOptsConfig.Runtimes["runc"],

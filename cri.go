@@ -112,13 +112,6 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 
 // validateConfig validates the given configuration.
 func validateConfig(c *criconfig.Config) error {
-	// It is an error to provide both an UntrustedWorkloadRuntime & define an 'untrusted' runtime.
-	if _, ok := c.ContainerdConfig.Runtimes[criconfig.RuntimeUntrusted]; ok {
-		if c.ContainerdConfig.UntrustedWorkloadRuntime.Type != "" {
-			return errors.New("conflicting definitions: configuration includes untrusted_workload_runtime and runtimes['untrusted']")
-		}
-	}
-
 	if c.StreamIdleTimeout != "" {
 		if _, err := time.ParseDuration(c.StreamIdleTimeout); err != nil {
 			return errors.Wrap(err, "invalid stream idle timeout")

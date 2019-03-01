@@ -655,11 +655,6 @@ func (c *criService) getSandboxRuntime(config *runtime.PodSandboxConfig, runtime
 			return criconfig.Runtime{}, errors.New("untrusted workload with host access is not allowed")
 		}
 
-		// Handle the deprecated UntrustedWorkloadRuntime.
-		if c.config.ContainerdConfig.UntrustedWorkloadRuntime.Type != "" {
-			return c.config.ContainerdConfig.UntrustedWorkloadRuntime, nil
-		}
-
 		runtimeHandler = criconfig.RuntimeUntrusted
 	}
 
