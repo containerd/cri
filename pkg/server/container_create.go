@@ -425,8 +425,7 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 	} else {
 		setOCILinuxResourceCgroup(&g, config.GetLinux().GetResources())
 		if sandboxConfig.GetLinux().GetCgroupParent() != "" {
-			cgroupsPath := getCgroupsPath(sandboxConfig.GetLinux().GetCgroupParent(), id,
-				c.config.SystemdCgroup)
+			cgroupsPath := getCgroupsPath(sandboxConfig.GetLinux().GetCgroupParent(), id)
 			g.SetLinuxCgroupsPath(cgroupsPath)
 		}
 	}

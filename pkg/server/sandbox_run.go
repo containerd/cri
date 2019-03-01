@@ -381,8 +381,7 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 		g.SetLinuxCgroupsPath("")
 	} else {
 		if config.GetLinux().GetCgroupParent() != "" {
-			cgroupsPath := getCgroupsPath(config.GetLinux().GetCgroupParent(), id,
-				c.config.SystemdCgroup)
+			cgroupsPath := getCgroupsPath(config.GetLinux().GetCgroupParent(), id)
 			g.SetLinuxCgroupsPath(cgroupsPath)
 		}
 	}
