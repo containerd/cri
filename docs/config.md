@@ -32,12 +32,6 @@ The explanation and default value of each configuration item are as follows:
   # stats_collect_period is the period (in seconds) of snapshots stats collection.
   stats_collect_period = 10
 
-  # systemd_cgroup enables systemd cgroup support. This only works for runtime
-  # type "io.containerd.runtime.v1.linux".
-  # DEPRECATED: use Runtime.Options for runtime specific config for shim v2 runtimes.
-  #   For runtime "io.containerd.runc.v1", use the option `SystemdCgroup`.
-  systemd_cgroup = false
-
   # enable_tls_streaming enables the TLS streaming support.
   # It generates a self-sign certificate unless the following x509_key_pair_streaming are both set.
   enable_tls_streaming = false
@@ -101,8 +95,7 @@ The explanation and default value of each configuration item are as follows:
       # the default runtime. The options type for "io.containerd.runtime.v1.linux" is:
       #   https://github.com/containerd/containerd/blob/v1.2.0-rc.1/runtime/linux/runctypes/runc.pb.go#L40
       # NOTE: when `options` is specified, all related deprecated options will
-      #   be ignored, including `systemd_cgroup`, `no_pivot`, `runtime_engine`
-      #   and `runtime_root`.
+      #   be ignored, including `no_pivot`, `runtime_engine` and `runtime_root`.
       [plugins.cri.containerd.default_runtime.options]
         # Runtime is the binary name of the runtime.
         Runtime = ""
