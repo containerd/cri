@@ -424,9 +424,12 @@ func (c *criService) generateContainerSpec(id string, sandboxID string, sandboxP
 		g.SetLinuxCgroupsPath("")
 	} else {
 		setOCILinuxResourceCgroup(&g, config.GetLinux().GetResources())
-		if sandboxConfig.GetLinux().GetCgroupParent() != "" {
-			cgroupsPath := getCgroupsPath(sandboxConfig.GetLinux().GetCgroupParent(), id,
-				c.config.SystemdCgroup)
+		cgroupParent := sandboxConfig.GetLinux().GetCgroupParent()
+		if cgroupParent != "" {
+			// Decide to use systemd or cgroupfs driver based on the path of the parent.
+			// If it ends with .slice, that means systemd is in use in the CRI client.
+			systemdCgroup := strings.HasSuffix(cgroupParent, ".slice")
+			cgroupsPath := getCgroupsPath(cgroupParent, id, systemdCgroup)
 			g.SetLinuxCgroupsPath(cgroupsPath)
 		}
 	}

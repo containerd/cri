@@ -380,9 +380,12 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 	if c.config.DisableCgroup {
 		g.SetLinuxCgroupsPath("")
 	} else {
-		if config.GetLinux().GetCgroupParent() != "" {
-			cgroupsPath := getCgroupsPath(config.GetLinux().GetCgroupParent(), id,
-				c.config.SystemdCgroup)
+		cgroupParent := config.GetLinux().GetCgroupParent()
+		if cgroupParent != "" {
+			// Decide to use systemd or cgroupfs driver based on the path of the parent.
+			// If it ends with .slice, that means systemd is in use in the CRI client.
+			systemdCgroup := strings.HasSuffix(cgroupParent, ".slice")
+			cgroupsPath := getCgroupsPath(cgroupParent, id, systemdCgroup)
 			g.SetLinuxCgroupsPath(cgroupsPath)
 		}
 	}
