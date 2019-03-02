@@ -126,9 +126,9 @@ func TestGetCgroupsPath(t *testing.T) {
 			expected:      "/a/b/test-id",
 		},
 		"should support systemd cgroup path": {
-			cgroupsParent: "/a.slice/b.slice",
+			cgroupsParent: "/a.slice/a-b.slice",
 			systemdCgroup: true,
-			expected:      "b.slice:cri-containerd:test-id",
+			expected:      "a-b.slice:cri-containerd:test-id",
 		},
 	} {
 		t.Logf("TestCase %q", desc)
