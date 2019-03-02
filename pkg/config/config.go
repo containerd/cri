@@ -138,7 +138,10 @@ type PluginConfig struct {
 	StatsCollectPeriod int `toml:"stats_collect_period" json:"statsCollectPeriod"`
 	// SystemdCgroup enables systemd cgroup support.
 	// This only works for runtime type "io.containerd.runtime.v1.linux".
-	// DEPRECATED: config runc runtime handler instead. Remove when shim v1 is deprecated.
+	// DEPRECATED: This is now doubly deprecated, first because this has been moved
+	// to Runtime.Options, second because we're now doing auto-detection based
+	// on the parent cgroup passed by the CRI client, so that field is no longer
+	// in use either.
 	SystemdCgroup bool `toml:"systemd_cgroup" json:"systemdCgroup"`
 	// EnableTLSStreaming indicates to enable the TLS streaming support.
 	EnableTLSStreaming bool `toml:"enable_tls_streaming" json:"enableTLSStreaming"`
