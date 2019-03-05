@@ -192,7 +192,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	if len(volumeMounts) > 0 {
 		mountMap := make(map[string]string)
 		for _, v := range volumeMounts {
-			mountMap[v.HostPath] = v.ContainerPath
+			mountMap[filepath.Clean(v.HostPath)] = v.ContainerPath
 		}
 		opts = append(opts, customopts.WithVolumes(mountMap))
 	}
@@ -723,7 +723,7 @@ func setOCIBindMountsPrivileged(g *generator) {
 	spec := g.Spec()
 	// clear readonly for /sys and cgroup
 	for i, m := range spec.Mounts {
-		if spec.Mounts[i].Destination == "/sys" && !spec.Root.Readonly {
+		if filepath.Clean(spec.Mounts[i].Destination) == "/sys" && !spec.Root.Readonly {
 			clearReadOnly(&spec.Mounts[i])
 		}
 		if m.Type == "cgroup" {
@@ -830,7 +830,7 @@ func defaultRuntimeSpec(id string) (*runtimespec.Spec, error) {
 	// TODO(random-liu): Mount tmpfs for /run and handle copy-up.
 	var mounts []runtimespec.Mount
 	for _, mount := range spec.Mounts {
-		if mount.Destination == "/run" {
+		if filepath.Clean(mount.Destination) == "/run" {
 			continue
 		}
 		mounts = append(mounts, mount)
