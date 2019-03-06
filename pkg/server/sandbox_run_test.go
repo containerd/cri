@@ -34,9 +34,23 @@ import (
 	criconfig "github.com/containerd/cri/pkg/config"
 	ostesting "github.com/containerd/cri/pkg/os/testing"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
+	sandboxAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 )
 
 func getRunPodSandboxTestData() (*runtime.PodSandboxConfig, *imagespec.ImageConfig, func(*testing.T, string, *runtimespec.Spec)) {
+
+	kernelPath := "/var/runtime/kernel"
+	initrdPath := "/var/runtime/initrd.img"
+	imagePath := "/var/runtime/image.img"
+	hypervisorPath := "/usr/bin/qemu-custom"
+	firmwarePath := "/var/run/custom-firmware/img"
+
+	kernelHash := "3971EBF11A18BCE250A282E6FF78739C9A0F7BCB9BC3552FE9CD8191E4A4DA573BB38983A47B2A86A63BFC4E41D3361D5D6AE1A1480BF3F27F730CC75FBC84DE"
+	initrdHash := "652DCF7057417D54C3236731A2CA47330B8809236B87DA89917403FEAAC34EA5DBE938EE60FDD606383B38DF9B51239D25968DDF1C0445C0E7AB448287197D64"
+	imageHash := "31D329DA77A2D0EF2943209EF432E3F0C7ED5B57124AFF1E37A5C7E6A01D780A473BD0FD594A3FA7CFBC2573FB150702BB11014C090D9222F9A0C048771F6F2A"
+	hypervisorHash := "0D4C6CCCCDCA141804EB236A07598FF118435450F58A181EED37E6E2D037720E1847473687558289F3972BDE6A9FD2E1F9EDC8C9B0550621D04198111FA955AD"
+	firmwareHash := "259870D2FF9DCB1C44E2D0C6FB467364422D9643E0577A55397E15ECEADA4668A9D1AD7FF776D1A93B9A70FE8C8C4EA77FE75E4BD21E7C24F1490FE09811CBD8"
+
 	config := &runtime.PodSandboxConfig{
 		Metadata: &runtime.PodSandboxMetadata{
 			Name:      "test-name",
@@ -47,7 +61,18 @@ func getRunPodSandboxTestData() (*runtime.PodSandboxConfig, *imagespec.ImageConf
 		Hostname:     "test-hostname",
 		LogDirectory: "test-log-directory",
 		Labels:       map[string]string{"a": "b"},
-		Annotations:  map[string]string{"c": "d"},
+		Annotations: map[string]string{"c": "d",
+			sandboxAnnotations.KernelPath:     kernelPath,
+			sandboxAnnotations.InitrdPath:     initrdPath,
+			sandboxAnnotations.ImagePath:      imagePath,
+			sandboxAnnotations.HypervisorPath: hypervisorPath,
+			sandboxAnnotations.FirmwarePath:   firmwarePath,
+			sandboxAnnotations.KernelHash:     kernelHash,
+			sandboxAnnotations.InitrdHash:     initrdHash,
+			sandboxAnnotations.ImageHash:      imageHash,
+			sandboxAnnotations.HypervisorHash: hypervisorHash,
+			sandboxAnnotations.FirmwareHash:   firmwareHash,
+		},
 		Linux: &runtime.LinuxPodSandboxConfig{
 			CgroupParent: "/test/cgroup/parent",
 		},
@@ -75,6 +100,28 @@ func getRunPodSandboxTestData() (*runtime.PodSandboxConfig, *imagespec.ImageConf
 
 		assert.Contains(t, spec.Annotations, annotations.ContainerType)
 		assert.EqualValues(t, spec.Annotations[annotations.ContainerType], annotations.ContainerTypeSandbox)
+
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.KernelPath)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.KernelPath], kernelPath)
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.InitrdPath)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.InitrdPath], initrdPath)
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.ImagePath)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.ImagePath], imagePath)
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.HypervisorPath)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.HypervisorPath], hypervisorPath)
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.FirmwarePath)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.FirmwarePath], firmwarePath)
+
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.KernelHash)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.KernelHash], kernelHash)
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.InitrdHash)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.InitrdHash], initrdHash)
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.ImageHash)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.ImageHash], imageHash)
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.HypervisorHash)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.HypervisorHash], hypervisorHash)
+		assert.Contains(t, spec.Annotations, sandboxAnnotations.FirmwareHash)
+		assert.EqualValues(t, spec.Annotations[sandboxAnnotations.FirmwareHash], firmwareHash)
 	}
 	return config, imageConfig, specCheck
 }

@@ -45,6 +45,7 @@ import (
 	"github.com/containerd/cri/pkg/netns"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 	"github.com/containerd/cri/pkg/util"
+	sandboxAnnotations "github.com/kata-containers/runtime/virtcontainers/pkg/annotations"
 )
 
 func init() {
@@ -451,6 +452,27 @@ func (c *criService) generateSandboxContainerSpec(id string, config *runtime.Pod
 		}
 	}
 	g.SetProcessOOMScoreAdj(adj)
+
+	vcAnnotations := []string{
+		sandboxAnnotations.KernelPath,
+		sandboxAnnotations.ImagePath,
+		sandboxAnnotations.InitrdPath,
+		sandboxAnnotations.HypervisorPath,
+		sandboxAnnotations.FirmwarePath,
+		sandboxAnnotations.KernelHash,
+		sandboxAnnotations.ImageHash,
+		sandboxAnnotations.InitrdHash,
+		sandboxAnnotations.HypervisorHash,
+		sandboxAnnotations.FirmwareHash,
+	}
+
+	for _, a := range vcAnnotations {
+		value, ok := config.Annotations[a]
+		if !ok {
+			continue
+		}
+		g.AddAnnotation(a, value)
+	}
 
 	g.AddAnnotation(annotations.ContainerType, annotations.ContainerTypeSandbox)
 	g.AddAnnotation(annotations.SandboxID, id)
