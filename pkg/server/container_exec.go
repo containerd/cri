@@ -32,5 +32,5 @@ func (c *criService) Exec(ctx context.Context, r *runtime.ExecRequest) (*runtime
 	if state != runtime.ContainerState_CONTAINER_RUNNING {
 		return nil, errors.Errorf("container is in %s state", criContainerStateToString(state))
 	}
-	return c.streamServer.GetExec(r)
+	return c.advertiseStreamServer.GetExec(r)
 }

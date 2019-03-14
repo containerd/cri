@@ -121,6 +121,8 @@ type PluginConfig struct {
 	CniConfig `toml:"cni" json:"cni"`
 	// Registry contains config related to the registry
 	Registry Registry `toml:"registry" json:"registry"`
+	// AdvertiseStreamServerAddress is the ip address streaming server is advertising on.
+	AdvertiseStreamServerAddress string `toml:"advertise_stream_server_address" json:"advertiseStreamServerAddress"`
 	// StreamServerAddress is the ip address streaming server is listening on.
 	StreamServerAddress string `toml:"stream_server_address" json:"streamServerAddress"`
 	// StreamServerPort is the port streaming server is listening on.
@@ -200,11 +202,12 @@ func DefaultConfig() PluginConfig {
 			},
 			NoPivot: false,
 		},
-		StreamServerAddress: "127.0.0.1",
-		StreamServerPort:    "0",
-		StreamIdleTimeout:   streaming.DefaultConfig.StreamIdleTimeout.String(), // 4 hour
-		EnableSelinux:       false,
-		EnableTLSStreaming:  false,
+		AdvertiseStreamServerAddress: "127.0.0.1",
+		StreamServerAddress:          "127.0.0.1",
+		StreamServerPort:             "0",
+		StreamIdleTimeout:            streaming.DefaultConfig.StreamIdleTimeout.String(), // 4 hour
+		EnableSelinux:                false,
+		EnableTLSStreaming:           false,
 		X509KeyPairStreaming: X509KeyPairStreaming{
 			TLSKeyFile:  "",
 			TLSCertFile: "",
