@@ -43,12 +43,12 @@ func (c *criService) Exec(ctx context.Context, r *runtime.ExecRequest) (*runtime
 	}
 
 	if c.config.StreamServerAddress != c.config.AdvertiseStreamServerAddress {
-		if !c.isAdvertiseStreamServerRunning() {
+		if !isAdvertiseStreamServerRunning() {
 			// Use channel to make sure the first exec will be successful
 			advertiseStreamServerCh := make(chan struct{})
 			go func() {
-				c.setAdvertiseStreamServerRunning(true)
-				defer c.setAdvertiseStreamServerRunning(false)
+				setAdvertiseStreamServerRunning(true)
+				defer setAdvertiseStreamServerRunning(false)
 				close(advertiseStreamServerCh)
 				if err := c.advertiseStreamServer.Start(true); err != nil && err != http.ErrServerClosed {
 					logrus.WithError(err).Error("Failed to start advertise streaming server")
@@ -63,14 +63,14 @@ func (c *criService) Exec(ctx context.Context, r *runtime.ExecRequest) (*runtime
 	return c.streamServer.GetExec(r)
 }
 
-func (c *criService) isAdvertiseStreamServerRunning() bool {
+func isAdvertiseStreamServerRunning() bool {
 	mu.Lock()
 	defer mu.Unlock()
 
 	return advertiseStreamServerRunning
 }
 
-func (c *criService) setAdvertiseStreamServerRunning(v bool) {
+func setAdvertiseStreamServerRunning(v bool) {
 	mu.Lock()
 	defer mu.Unlock()
 
