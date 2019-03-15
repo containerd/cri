@@ -18,12 +18,17 @@ package server
 
 import (
 	"net/http"
-	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
+)
+
+var (
+	mu                           sync.Mutex
+	advertiseStreamServerRunning bool
 )
 
 // Exec prepares a streaming endpoint to execute a command in the container, and returns the address.
@@ -38,19 +43,36 @@ func (c *criService) Exec(ctx context.Context, r *runtime.ExecRequest) (*runtime
 	}
 
 	if c.config.StreamServerAddress != c.config.AdvertiseStreamServerAddress {
-		// Use channel to make sure the first exec will be successful
-		advertiseStreamServerCh := make(chan struct{})
-		go func() {
-			close(advertiseStreamServerCh)
-			if err := c.advertiseStreamServer.Start(true); err != nil && err != http.ErrServerClosed && !strings.Contains(err.Error(), "address already in use") {
-				logrus.WithError(err).Error("Failed to start advertise streaming server")
-			}
-		}()
+		if !c.isAdvertiseStreamServerRunning() {
+			// Use channel to make sure the first exec will be successful
+			advertiseStreamServerCh := make(chan struct{})
+			go func() {
+				c.setAdvertiseStreamServerRunning(true)
+				defer c.setAdvertiseStreamServerRunning(false)
+				close(advertiseStreamServerCh)
+				if err := c.advertiseStreamServer.Start(true); err != nil && err != http.ErrServerClosed {
+					logrus.WithError(err).Error("Failed to start advertise streaming server")
+				}
+			}()
 
-		<-advertiseStreamServerCh
+			<-advertiseStreamServerCh
+		}
 		return c.advertiseStreamServer.GetExec(r)
-
 	}
 
 	return c.streamServer.GetExec(r)
+}
+
+func (c *criService) isAdvertiseStreamServerRunning() bool {
+	mu.Lock()
+	defer mu.Unlock()
+
+	return advertiseStreamServerRunning
+}
+
+func (c *criService) setAdvertiseStreamServerRunning(v bool) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	advertiseStreamServerRunning = v
 }
