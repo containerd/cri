@@ -25,7 +25,7 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/plugin"
-	cni "github.com/containerd/go-cni"
+	"github.com/containerd/go-cni"
 	runcapparmor "github.com/opencontainers/runc/libcontainer/apparmor"
 	runcseccomp "github.com/opencontainers/runc/libcontainer/seccomp"
 	runcsystem "github.com/opencontainers/runc/libcontainer/system"

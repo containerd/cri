@@ -17,7 +17,11 @@ limitations under the License.
 package server
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/kubernetes/pkg/kubelet/apis/cri/runtime/v1alpha2"
 )
@@ -32,5 +36,16 @@ func (c *criService) Exec(ctx context.Context, r *runtime.ExecRequest) (*runtime
 	if state != runtime.ContainerState_CONTAINER_RUNNING {
 		return nil, errors.Errorf("container is in %s state", criContainerStateToString(state))
 	}
-	return c.advertiseStreamServer.GetExec(r)
+
+	if c.config.StreamServerAddress != c.config.AdvertiseStreamServerAddress {
+		go func() {
+			if err := c.advertiseStreamServer.Start(true); err != nil && err != http.ErrServerClosed && !strings.Contains(err.Error(), "address already in use") {
+				logrus.WithError(err).Error("Failed to start advertise streaming server")
+			}
+		}()
+
+		return c.advertiseStreamServer.GetExec(r)
+	}
+
+	return c.streamServer.GetExec(r)
 }
