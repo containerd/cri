@@ -38,13 +38,18 @@ func (c *criService) Exec(ctx context.Context, r *runtime.ExecRequest) (*runtime
 	}
 
 	if c.config.StreamServerAddress != c.config.AdvertiseStreamServerAddress {
+		// Use channel to make sure the first exec will be successful
+		advertiseStreamServerCh := make(chan struct{})
 		go func() {
+			close(advertiseStreamServerCh)
 			if err := c.advertiseStreamServer.Start(true); err != nil && err != http.ErrServerClosed && !strings.Contains(err.Error(), "address already in use") {
 				logrus.WithError(err).Error("Failed to start advertise streaming server")
 			}
 		}()
 
+		<-advertiseStreamServerCh
 		return c.advertiseStreamServer.GetExec(r)
+
 	}
 
 	return c.streamServer.GetExec(r)
