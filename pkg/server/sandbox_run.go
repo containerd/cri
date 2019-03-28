@@ -118,8 +118,10 @@ func (c *criService) RunPodSandbox(ctx context.Context, r *runtime.RunPodSandbox
 		sandbox.NetNSPath = sandbox.NetNS.GetPath()
 		defer func() {
 			if retErr != nil {
-				if err := sandbox.NetNS.Remove(); err != nil {
-					logrus.WithError(err).Errorf("Failed to remove network namespace %s for sandbox %q", sandbox.NetNSPath, id)
+				if sandbox.NetNS != nil {
+					if err := sandbox.NetNS.Remove(); err != nil {
+						logrus.WithError(err).Errorf("Failed to remove network namespace %s for sandbox %q", sandbox.NetNSPath, id)
+					}
 				}
 				sandbox.NetNSPath = ""
 			}
