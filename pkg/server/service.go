@@ -92,6 +92,8 @@ type criService struct {
 	netPlugin cni.CNI
 	// client is an instance of the containerd client
 	client *containerd.Client
+	// tcpServer is the additional gRPC server for CRI.
+	tcpServer *tcpServer
 	// streamServer is the streaming server serves container streaming request.
 	streamServer streaming.Server
 	// eventMonitor is the monitor monitors containerd events.
@@ -163,6 +165,13 @@ func NewCRIService(config criconfig.Config, client *containerd.Client) (CRIServi
 		return nil, errors.Wrap(err, "failed to create stream server")
 	}
 
+	if c.config.TCPServerEndpoint != "" {
+		c.tcpServer, err = newTCPServer(c, config.TCPServerEndpoint)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create additional TCP server for CRI")
+		}
+	}
+
 	c.eventMonitor = newEventMonitor(c)
 
 	return c, nil
@@ -211,14 +220,27 @@ func (c *criService) Run() error {
 		}
 	}()
 
+	tcpServerErrCh := make(chan error)
+	if c.tcpServer != nil {
+		logrus.WithField("endpoint", c.config.TCPServerEndpoint).Info("Start additional CRI server over TCP")
+		go func() {
+			defer close(tcpServerErrCh)
+			if err := c.tcpServer.start(); err != nil {
+				logrus.WithError(err).Error("Failed to start CRI server on TCP")
+				tcpServerErrCh <- err
+			}
+		}()
+	}
+
 	// Set the server as initialized. GRPC services could start serving traffic.
 	c.initialized.Set()
 
-	var eventMonitorErr, streamServerErr error
+	var eventMonitorErr, streamServerErr, tcpServerErr error
 	// Stop the whole CRI service if any of the critical service exits.
 	select {
 	case eventMonitorErr = <-eventMonitorErrCh:
 	case streamServerErr = <-streamServerErrCh:
+	case tcpServerErr = <-tcpServerErrCh:
 	}
 	if err := c.Close(); err != nil {
 		return errors.Wrap(err, "failed to stop cri service")
@@ -253,6 +275,9 @@ func (c *criService) Run() error {
 	if streamServerErr != nil {
 		return errors.Wrap(streamServerErr, "stream server error")
 	}
+	if tcpServerErr != nil {
+		return errors.Wrap(tcpServerErr, "TCP server error")
+	}
 	return nil
 }
 
@@ -261,6 +286,9 @@ func (c *criService) Run() error {
 func (c *criService) Close() error {
 	logrus.Info("Stop CRI service")
 	c.eventMonitor.stop()
+	if c.tcpServer != nil {
+		c.tcpServer.stop()
+	}
 	if err := c.streamServer.Stop(); err != nil {
 		return errors.Wrap(err, "failed to stop stream server")
 	}
