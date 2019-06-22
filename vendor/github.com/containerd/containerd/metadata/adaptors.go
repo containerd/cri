@@ -51,8 +51,6 @@ func adaptImage(o interface{}) filters.Adaptor {
 			return checkMap(fieldpath[1:], obj.Labels)
 			// TODO(stevvooe): Greater/Less than filters would be awesome for
 			// size. Let's do it!
-		case "annotations":
-			return checkMap(fieldpath[1:], obj.Target.Annotations)
 		}
 
 		return "", false

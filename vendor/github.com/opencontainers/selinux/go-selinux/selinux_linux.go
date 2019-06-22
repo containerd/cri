@@ -406,14 +406,7 @@ func SocketLabel() (string, error) {
 // SetKeyLabel takes a process label and tells the kernel to assign the
 // label to the next kernel keyring that gets created
 func SetKeyLabel(label string) error {
-	err := writeCon("/proc/self/attr/keycreate", label)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if label == "" && os.IsPermission(err) && !GetEnabled() {
-		return nil
-	}
-	return err
+	return writeCon("/proc/self/attr/keycreate", label)
 }
 
 // KeyLabel retrieves the current kernel keyring label setting

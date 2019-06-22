@@ -106,15 +106,14 @@ func (s *walkingDiff) Compare(ctx context.Context, lower, upper []mount.Mount, o
 				}
 			}()
 			if !newReference {
-				if err = cw.Truncate(0); err != nil {
+				if err := cw.Truncate(0); err != nil {
 					return err
 				}
 			}
 
 			if isCompressed {
 				dgstr := digest.SHA256.Digester()
-				var compressed io.WriteCloser
-				compressed, err = compression.CompressStream(cw, compression.Gzip)
+				compressed, err := compression.CompressStream(cw, compression.Gzip)
 				if err != nil {
 					return errors.Wrap(err, "failed to get compressed stream")
 				}
