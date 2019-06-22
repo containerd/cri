@@ -164,18 +164,16 @@ func toMounts(apim []*types.Mount) []mount.Mount {
 
 func toDescriptor(d *types.Descriptor) ocispec.Descriptor {
 	return ocispec.Descriptor{
-		MediaType:   d.MediaType,
-		Digest:      d.Digest,
-		Size:        d.Size_,
-		Annotations: d.Annotations,
+		MediaType: d.MediaType,
+		Digest:    d.Digest,
+		Size:      d.Size_,
 	}
 }
 
 func fromDescriptor(d ocispec.Descriptor) *types.Descriptor {
 	return &types.Descriptor{
-		MediaType:   d.MediaType,
-		Digest:      d.Digest,
-		Size_:       d.Size,
-		Annotations: d.Annotations,
+		MediaType: d.MediaType,
+		Digest:    d.Digest,
+		Size_:     d.Size,
 	}
 }
