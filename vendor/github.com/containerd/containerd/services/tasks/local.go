@@ -136,10 +136,9 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 			return nil, fmt.Errorf("unsupported checkpoint type %q", r.Checkpoint.MediaType)
 		}
 		reader, err := l.store.ReaderAt(ctx, ocispec.Descriptor{
-			MediaType:   r.Checkpoint.MediaType,
-			Digest:      r.Checkpoint.Digest,
-			Size:        r.Checkpoint.Size_,
-			Annotations: r.Checkpoint.Annotations,
+			MediaType: r.Checkpoint.MediaType,
+			Digest:    r.Checkpoint.Digest,
+			Size:      r.Checkpoint.Size_,
 		})
 		if err != nil {
 			return nil, err
@@ -606,10 +605,9 @@ func (l *local) writeContent(ctx context.Context, mediaType, ref string, r io.Re
 		return nil, err
 	}
 	return &types.Descriptor{
-		MediaType:   mediaType,
-		Digest:      writer.Digest(),
-		Size_:       size,
-		Annotations: make(map[string]string),
+		MediaType: mediaType,
+		Digest:    writer.Digest(),
+		Size_:     size,
 	}, nil
 }
 
