@@ -97,15 +97,18 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 	// image has already been converted.
 	isSchema1 := desc.MediaType == containerdimages.MediaTypeDockerSchema1Manifest
 
-	image, err := c.client.Pull(ctx, ref,
+	img, err := c.client.Fetch(ctx, ref,
 		containerd.WithSchema1Conversion,
 		containerd.WithResolver(resolver),
-		containerd.WithPullSnapshotter(c.config.ContainerdConfig.Snapshotter),
-		containerd.WithPullUnpack,
 		containerd.WithPullLabel(imageLabelKey, imageLabelValue),
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to pull and unpack image %q", ref)
+		return nil, errors.Wrapf(err, "failed to pull image %q", ref)
+	}
+
+	image := containerd.NewImage(c.client, img)
+	if err := image.Unpack(ctx, c.config.ContainerdConfig.Snapshotter); err != nil {
+		return nil, errors.Wrapf(err, "failed to unpack image %q", ref)
 	}
 
 	configDesc, err := image.Config(ctx)
