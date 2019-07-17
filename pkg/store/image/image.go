@@ -106,9 +106,6 @@ func (s *Store) update(ref string, img *Image) error {
 		return nil
 	}
 	if oldExist {
-		if oldID == img.ID {
-			return nil
-		}
 		// Updated. Remove tag from old image.
 		s.store.delete(oldID, ref)
 	}
