@@ -1013,14 +1013,25 @@ func TestMaskedAndReadonlyPaths(t *testing.T) {
 	defaultSpec, err := defaultRuntimeSpec(testID)
 	require.NoError(t, err)
 	for desc, test := range map[string]struct {
+		disableProcMount bool
 		masked           []string
 		readonly         []string
 		expectedMasked   []string
 		expectedReadonly []string
 	}{
-		"should apply default if not specified": {
+		"should apply default if not specified when disable_proc_mount = true": {
+			disableProcMount: true,
+			masked:           nil,
+			readonly:         nil,
 			expectedMasked:   defaultSpec.Linux.MaskedPaths,
 			expectedReadonly: defaultSpec.Linux.ReadonlyPaths,
+		},
+		"should always apply CRI specified paths when disable_proc_mount = false": {
+			disableProcMount: false,
+			masked:           nil,
+			readonly:         nil,
+			expectedMasked:   nil,
+			expectedReadonly: nil,
 		},
 		"should be able to specify empty paths": {
 			masked:           []string{},
@@ -1036,6 +1047,7 @@ func TestMaskedAndReadonlyPaths(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
+		c.config.DisableProcMount = test.disableProcMount
 		config.Linux.SecurityContext.MaskedPaths = test.masked
 		config.Linux.SecurityContext.ReadonlyPaths = test.readonly
 		spec, err := c.generateContainerSpec(testID, testSandboxID, testPid, config, sandboxConfig, imageConfig, nil)

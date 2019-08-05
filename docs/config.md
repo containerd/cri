@@ -44,6 +44,10 @@ The explanation and default value of each configuration item are as follows:
   # limit.
   max_container_log_line_size = 16384
 
+  # disable_proc_mount disables Kubernetes ProcMount support. This MUST be set to `true`
+  # when using containerd with Kubernetes <=1.11.
+  disable_proc_mount = false
+
   # "plugins.cri.containerd" contains config related to containerd
   [plugins.cri.containerd]
 
