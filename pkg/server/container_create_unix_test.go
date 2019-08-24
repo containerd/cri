@@ -34,6 +34,7 @@ import (
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/runc/libcontainer/devices"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -232,6 +233,12 @@ func TestContainerCapabilities(t *testing.T) {
 		containerConfig.Linux.SecurityContext.Capabilities = test.capability
 		spec, err := c.containerSpec(testID, testSandboxID, testPid, "", testContainerName, containerConfig, sandboxConfig, imageConfig, nil, ociRuntime)
 		require.NoError(t, err)
+
+		if selinux.GetEnabled() {
+			assert.NotEqual(t, "", spec.Process.SelinuxLabel)
+			assert.NotEqual(t, "", spec.Linux.MountLabel)
+		}
+
 		specCheck(t, testID, testSandboxID, testPid, spec)
 		for _, include := range test.includes {
 			assert.Contains(t, spec.Process.Capabilities.Bounding, include)
