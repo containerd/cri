@@ -98,7 +98,7 @@ func getCreateContainerTestData() (*runtime.ContainerConfig, *runtime.PodSandbox
 			},
 		},
 		Labels:      map[string]string{"a": "b"},
-		Annotations: map[string]string{"c": "d"},
+		Annotations: map[string]string{"ca-c": "ca-d"},
 		Linux: &runtime.LinuxContainerConfig{
 			Resources: &runtime.LinuxContainerResources{
 				CpuPeriod:          100,
@@ -367,7 +367,46 @@ func TestPodAnnotationPassthroughContainerSpec(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestContainerAnnotationPassthroughContainerSpec(t *testing.T) {
+	testID := "test-id"
+	testSandboxID := "sandbox-id"
+	testPid := uint32(1234)
+
+	for desc, test := range map[string]struct {
+		podAnnotations []string
+		configChange   func(*runtime.PodSandboxConfig)
+		specCheck      func(*testing.T, *runtimespec.Spec)
+	}{
+		"passthrough annotations from pod and container should be passed as an OCI annotation": {
+			podAnnotations: []string{"c*"}, // wildcard should pick up the c->d pair in pod, and the ca-c->ca-d pair in container
+			specCheck: func(t *testing.T, spec *runtimespec.Spec) {
+				assert.Equal(t, "d", spec.Annotations["c"])
+				assert.Equal(t, "ca-d", spec.Annotations["ca-c"])
+			},
+		},
+	} {
+		t.Run(desc, func(t *testing.T) {
+			c := newTestCRIService()
+			containerConfig, sandboxConfig, imageConfig, specCheck := getCreateContainerTestData()
+			if test.configChange != nil {
+				test.configChange(sandboxConfig)
+			}
+
+			ociRuntime := config.Runtime{
+				PodAnnotations: test.podAnnotations,
+			}
+			spec, err := c.containerSpec(testID, testSandboxID, testPid, "",
+				containerConfig, sandboxConfig, imageConfig, nil, ociRuntime)
+			assert.NoError(t, err)
+			assert.NotNil(t, spec)
+			specCheck(t, testID, testSandboxID, testPid, spec)
+			if test.specCheck != nil {
+				test.specCheck(t, spec)
+			}
+		})
+	}
 }
 
 func TestContainerSpecReadonlyRootfs(t *testing.T) {
