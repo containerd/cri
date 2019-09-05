@@ -137,6 +137,7 @@ sudo containerd
 ```bash
 CONTAINER_RUNTIME=remote CONTAINER_RUNTIME_ENDPOINT='unix:///run/containerd/containerd.sock' ./hack/local-up-cluster.sh
 ```
+3. Init [cni](https://github.com/containernetworking/cni#running-the-plugins) and make the node ready to create application
 ### Test
 See [here](./docs/testing.md) for information about test.
 ## Using crictl
