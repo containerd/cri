@@ -26,6 +26,9 @@ CRICTL_CONFIG_DIR=${DESTDIR}/etc
 TMPGOPATH=$(mktemp -d /tmp/cri-install-crictl.XXXX)
 GOPATH=${TMPGOPATH}
 
+# Set GOPATH to build with vendor
+export GOPATH=${GOPATH}
+
 #Install crictl
 checkout_repo ${CRITOOL_PKG} ${CRITOOL_VERSION} ${CRITOOL_REPO}
 cd ${GOPATH}/src/${CRITOOL_PKG}

@@ -35,6 +35,9 @@ if ${CHECKOUT_CONTAINERD}; then
   checkout_repo ${CONTAINERD_PKG} ${CONTAINERD_VERSION} ${CONTAINERD_REPO}
 fi
 
+# Set GOPATH to build with vendor
+export GOPATH=${GOPATH}
+
 # Install containerd
 cd ${GOPATH}/src/${CONTAINERD_PKG}
 make BUILDTAGS="${BUILDTAGS}"

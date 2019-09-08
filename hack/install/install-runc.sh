@@ -26,6 +26,9 @@ RUNC_PKG=github.com/opencontainers/runc
 TMPGOPATH=$(mktemp -d /tmp/cri-install-runc.XXXX)
 GOPATH=${TMPGOPATH}
 
+# Set GOPATH to build with vendor
+export GOPATH=${GOPATH}
+
 # Install runc
 from-vendor RUNC github.com/opencontainers/runc
 checkout_repo ${RUNC_PKG} ${RUNC_VERSION} ${RUNC_REPO}
