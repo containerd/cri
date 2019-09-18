@@ -26,8 +26,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Runtime struct to contain the type(ID), engine, and root variables for a default runtime
-// and a runtime for untrusted worload.
+// Runtime struct to contain the type(ID), engine, and root variables for a runtime.
 type Runtime struct {
 	// Type is the runtime type to use in containerd e.g. io.containerd.runtime.v1.linux
 	Type string `toml:"runtime_type" json:"runtimeType"`
@@ -64,9 +63,6 @@ type ContainerdConfig struct {
 	// This runtime is used when no runtime handler (or the empty string) is provided.
 	// DEPRECATED: use DefaultRuntimeName instead. Remove in containerd 1.4.
 	DefaultRuntime Runtime `toml:"default_runtime" json:"defaultRuntime"`
-	// UntrustedWorkloadRuntime is a runtime to run untrusted workloads on it.
-	// DEPRECATED: use `untrusted` runtime in Runtimes instead. Remove in containerd 1.4.
-	UntrustedWorkloadRuntime Runtime `toml:"untrusted_workload_runtime" json:"untrustedWorkloadRuntime"`
 	// Runtimes is a map from CRI RuntimeHandler strings, which specify types of runtime
 	// configurations, to the matching configurations.
 	Runtimes map[string]Runtime `toml:"runtimes" json:"runtimes"`
@@ -229,26 +225,13 @@ type Config struct {
 	StateDir string `json:"stateDir"`
 }
 
-const (
-	// RuntimeUntrusted is the implicit runtime defined for ContainerdConfig.UntrustedWorkloadRuntime
-	RuntimeUntrusted = "untrusted"
-	// RuntimeDefault is the implicit runtime defined for ContainerdConfig.DefaultRuntime
-	RuntimeDefault = "default"
-)
+// RuntimeDefault is the implicit runtime defined for ContainerdConfig.DefaultRuntime
+const RuntimeDefault = "default"
 
 // ValidatePluginConfig validates the given plugin configuration.
 func ValidatePluginConfig(ctx context.Context, c *PluginConfig) error {
 	if c.ContainerdConfig.Runtimes == nil {
 		c.ContainerdConfig.Runtimes = make(map[string]Runtime)
-	}
-
-	// Validation for deprecated untrusted_workload_runtime.
-	if c.ContainerdConfig.UntrustedWorkloadRuntime.Type != "" {
-		log.G(ctx).Warning("`untrusted_workload_runtime` is deprecated, please use `untrusted` runtime in `runtimes` instead")
-		if _, ok := c.ContainerdConfig.Runtimes[RuntimeUntrusted]; ok {
-			return errors.Errorf("conflicting definitions: configuration includes both `untrusted_workload_runtime` and `runtimes[%q]`", RuntimeUntrusted)
-		}
-		c.ContainerdConfig.Runtimes[RuntimeUntrusted] = c.ContainerdConfig.UntrustedWorkloadRuntime
 	}
 
 	// Validation for deprecated default_runtime field.
