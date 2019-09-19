@@ -270,15 +270,11 @@ func TestSelectPodIP(t *testing.T) {
 
 func TestGetSandboxRuntime(t *testing.T) {
 	defaultRuntime := criconfig.Runtime{
-		Type:   "io.containerd.runtime.v1.linux",
-		Engine: "default-runtime",
-		Root:   "",
+		Type: "io.containerd.runtime.v1.linux",
 	}
 
 	fooRuntime := criconfig.Runtime{
-		Type:   "io.containerd.runtime.v1.linux",
-		Engine: "foo-bar",
-		Root:   "",
+		Type: "foo.runtime",
 	}
 
 	for desc, test := range map[string]struct {
