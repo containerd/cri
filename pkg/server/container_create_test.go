@@ -368,6 +368,27 @@ func TestPodAnnotationPassthroughContainerSpec(t *testing.T) {
 
 }
 
+func TestContainerSpecDefaultPath(t *testing.T) {
+	testID := "test-id"
+	testSandboxID := "sandbox-id"
+	testPid := uint32(1234)
+	expectedDefault := "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	containerConfig, sandboxConfig, imageConfig, specCheck := getCreateContainerTestData()
+	ociRuntime := config.Runtime{}
+	c := newTestCRIService()
+	for _, pathenv := range []string{"", "PATH=/usr/local/bin/games"} {
+		expected := expectedDefault
+		if pathenv != "" {
+			imageConfig.Env = append(imageConfig.Env, pathenv)
+			expected = pathenv
+		}
+		spec, err := c.generateContainerSpec(testID, testSandboxID, testPid, containerConfig, sandboxConfig, imageConfig, nil, ociRuntime)
+		require.NoError(t, err)
+		specCheck(t, testID, testSandboxID, testPid, spec)
+		assert.Contains(t, spec.Process.Env, expected)
+	}
+}
+
 func TestContainerSpecReadonlyRootfs(t *testing.T) {
 	testID := "test-id"
 	testSandboxID := "sandbox-id"

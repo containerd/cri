@@ -1,3 +1,5 @@
+// +build !linux
+
 /*
    Copyright The containerd Authors.
 
@@ -14,23 +16,11 @@
    limitations under the License.
 */
 
-package containerd
+package seccomp
 
-import (
-	"context"
+import specs "github.com/opencontainers/runtime-spec/specs-go"
 
-	"github.com/containerd/cgroups"
-	"github.com/containerd/containerd/namespaces"
-)
-
-// WithNamespaceCgroupDeletion removes the cgroup directory that was created for the namespace
-func WithNamespaceCgroupDeletion(ctx context.Context, i *namespaces.DeleteInfo) error {
-	cg, err := cgroups.Load(cgroups.V1, cgroups.StaticPath(i.Name))
-	if err != nil {
-		if err == cgroups.ErrCgroupDeleted {
-			return nil
-		}
-		return err
-	}
-	return cg.Delete()
+// DefaultProfile defines the whitelist for the default seccomp profile.
+func DefaultProfile(sp *specs.Spec) *specs.LinuxSeccomp {
+	return &specs.LinuxSeccomp{}
 }
