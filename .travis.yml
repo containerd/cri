@@ -38,6 +38,14 @@ jobs:
         - make containerd
         - sudo make install-containerd
         - make test
+        # Use a different port for stream server to avoid
+        # conflict with the docker-containerd.
+        - |
+          sudo mkdir -p /etc/containerd
+          sudo bash -c 'cat > /etc/containerd/config.toml <<EOF
+          [plugins.cri]
+            stream_server_port = "10011"
+          EOF'
         - make test-integration
         - make test-cri
       after_script:
