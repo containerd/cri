@@ -19,6 +19,8 @@ limitations under the License.
 package server
 
 import (
+	"strings"
+
 	"github.com/containerd/containerd/oci"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -31,7 +33,15 @@ import (
 
 // No container mounts for windows.
 func (c *criService) containerMounts(sandboxID string, config *runtime.ContainerConfig) []*runtime.Mount {
-	return nil
+	var mounts []*runtime.Mount
+	for _, m := range config.GetMounts() {
+		mounts = append(mounts, &runtime.Mount{
+			ContainerPath: strings.Replace(m.ContainerPath, "/", "\\", -1),
+			HostPath:      strings.Replace(m.HostPath, "/", "\\", -1),
+			Readonly:      m.Readonly,
+		})
+	}
+	return mounts
 }
 
 func (c *criService) containerSpec(id string, sandboxID string, sandboxPid uint32, netNSPath string,
