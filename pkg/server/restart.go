@@ -274,8 +274,14 @@ func (c *criService) loadContainer(ctx context.Context, cntr containerd.Containe
 				default:
 					// This may happen if containerd gets restarted after task is started, but
 					// before status is checkpointed.
+					if cntrInfo, err := cntr.Info(ctx); err == nil {
+						status.CreatedAt = cntrInfo.CreatedAt.UnixNano()
+					}
 					status.StartedAt = time.Now().UnixNano()
 					status.Pid = t.Pid()
+					status.FinishedAt = 0
+					status.ExitCode = 0
+					status.Reason = ""
 				}
 				// Wait for the task for exit monitor.
 				// wait is a long running background request, no timeout needed.
