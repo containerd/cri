@@ -7,7 +7,13 @@ go:
   - 1.14
 
 matrix:
-  - go: 1.14
+  include:
+  - os: linux
+    arch: s390x
+    go: 1.13.8
+  - os: linux
+    arch: s390x
+    go: 1.14
 
 sudo: required
 
@@ -41,9 +47,13 @@ script:
   - make install.deps
   - make containerd
   - sudo PATH=$PATH GOPATH=$GOPATH make install-containerd
-  - make test
-  - make test-integration
-  - make test-cri
+  - if [ "$HOSTTYPE" == "s390x" ];then
+      make test;
+    else 
+      make test;
+      make test-integration;
+      make test-cri;
+    fi  
 after_script:
   # Abuse travis to preserve the log.
   - cat /tmp/test-integration/containerd.log
