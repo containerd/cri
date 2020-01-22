@@ -41,7 +41,7 @@
         dest: "/etc/systemd/system/kubelet.service.d/10-kubeadm.conf"
         line: "Environment=\"KUBELET_EXTRA_ARGS= --runtime-cgroups=/system.slice/containerd.service --container-runtime=remote --runtime-request-timeout=15m --container-runtime-endpoint=unix:///run/containerd/containerd.sock\""
         insertafter: '\[Service\]'
-      when: andisble_distribution == "Ubuntu" and check_args.stdout == ""
+      when: ansible_distribution == "Ubuntu" and check_args.stdout == ""
 
     - name: "Check kubelet args in kubelet config (CentOS)"
       shell: grep "^Environment=\"KUBELET_EXTRA_ARGS=" /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf || true
