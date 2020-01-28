@@ -106,7 +106,7 @@ func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest)
 			return nil, nil
 		}
 	)
-	image, err := c.client.Pull(ctx, ref,
+	image, err := c.client.Pull(ctx, ref, time.Duration(r.GetTimeout()) * time.Second,
 		containerd.WithSchema1Conversion,
 		containerd.WithResolver(resolver),
 		containerd.WithPullSnapshotter(c.config.ContainerdConfig.Snapshotter),

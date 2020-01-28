@@ -18,6 +18,7 @@ package containerd
 
 import (
 	"context"
+	"time"
 
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/images"
@@ -32,8 +33,16 @@ import (
 
 // Pull downloads the provided content into containerd's content store
 // and returns a platform specific image object
-func (c *Client) Pull(ctx context.Context, ref string, opts ...RemoteOpt) (_ Image, retErr error) {
+func (c *Client) Pull(ctx context.Context, ref string, timeout time.Duration, opts ...RemoteOpt) (_ Image, retErr error) {
 	pullCtx := defaultRemoteContext()
+
+	if timeout > 0 {
+		var ctxCancel context.CancelFunc
+
+		ctx, ctxCancel = context.WithTimeout(ctx, timeout)
+		defer ctxCancel()
+	}
+
 	for _, o := range opts {
 		if err := o(c, pullCtx); err != nil {
 			return nil, err
