@@ -186,8 +186,32 @@ func (u *unpacker) unpack(ctx context.Context, config ocispec.Descriptor, layers
 	return nil
 }
 
-func (u *unpacker) handlerWrapper(uctx context.Context, unpacks *int32) (func(images.Handler) images.Handler, *errgroup.Group) {
-	eg, uctx := errgroup.WithContext(uctx)
+type errGroup struct {
+	*errgroup.Group
+	cancel context.CancelFunc
+}
+
+func newErrGroup(ctx context.Context) (*errGroup, context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	eg, ctx := errgroup.WithContext(ctx)
+	return &errGroup{
+		Group:  eg,
+		cancel: cancel,
+	}, ctx
+}
+
+func (e *errGroup) Cancel() {
+	e.cancel()
+}
+
+func (e *errGroup) Wait() error {
+	err := e.Group.Wait()
+	e.cancel()
+	return err
+}
+
+func (u *unpacker) handlerWrapper(uctx context.Context, unpacks *int32) (func(images.Handler) images.Handler, *errGroup) {
+	eg, uctx := newErrGroup(uctx)
 	return func(f images.Handler) images.Handler {
 		var (
 			lock    sync.Mutex
@@ -204,12 +228,12 @@ func (u *unpacker) handlerWrapper(uctx context.Context, unpacks *int32) (func(im
 			// one manifest to handle, and manifest list can be
 			// safely skipped.
 			// TODO: support multi-platform unpack.
-			switch desc.MediaType {
-			case images.MediaTypeDockerSchema1Manifest:
+			switch mt := desc.MediaType; {
+			case mt == images.MediaTypeDockerSchema1Manifest:
 				lock.Lock()
 				schema1 = true
 				lock.Unlock()
-			case images.MediaTypeDockerSchema2Manifest, ocispec.MediaTypeImageManifest:
+			case mt == images.MediaTypeDockerSchema2Manifest || mt == ocispec.MediaTypeImageManifest:
 				lock.Lock()
 				for _, child := range children {
 					if child.MediaType == images.MediaTypeDockerSchema2Config ||
@@ -219,7 +243,7 @@ func (u *unpacker) handlerWrapper(uctx context.Context, unpacks *int32) (func(im
 					layers = append(layers, child)
 				}
 				lock.Unlock()
-			case images.MediaTypeDockerSchema2Config, ocispec.MediaTypeImageConfig:
+			case mt == images.MediaTypeDockerSchema2Config || mt == ocispec.MediaTypeImageConfig:
 				lock.Lock()
 				l := append([]ocispec.Descriptor{}, layers...)
 				lock.Unlock()
@@ -229,16 +253,24 @@ func (u *unpacker) handlerWrapper(uctx context.Context, unpacks *int32) (func(im
 						return u.unpack(uctx, desc, l)
 					})
 				}
-			case images.MediaTypeDockerSchema2Layer, images.MediaTypeDockerSchema2LayerGzip,
-				images.MediaTypeDockerSchema2LayerForeign, images.MediaTypeDockerSchema2LayerForeignGzip,
-				ocispec.MediaTypeImageLayer, ocispec.MediaTypeImageLayerGzip,
-				ocispec.MediaTypeImageLayerNonDistributable, ocispec.MediaTypeImageLayerNonDistributableGzip,
-				images.MediaTypeDockerSchema2LayerEnc, images.MediaTypeDockerSchema2LayerGzipEnc:
+			case images.IsLayerType(mt):
 				lock.Lock()
 				update := !schema1
 				lock.Unlock()
 				if update {
-					u.updateCh <- desc
+					select {
+					case <-uctx.Done():
+						// Do not send update if unpacker is not running.
+					default:
+						select {
+						case u.updateCh <- desc:
+						case <-uctx.Done():
+							// Do not send update if unpacker is not running.
+						}
+					}
+					// Checking ctx.Done() prevents the case that unpacker
+					// exits unexpectedly, but update continues to be generated,
+					// and eventually fills up updateCh and blocks forever.
 				}
 			}
 			return children, nil
