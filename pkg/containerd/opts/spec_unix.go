@@ -328,7 +328,7 @@ func WithDevices(osi osinterface.OS, config *runtime.ContainerConfig) oci.SpecOp
 	}
 }
 
-// WithCapabilities sets the provided capabilties from the security context
+// WithCapabilities sets the provided capabilities from the security context
 func WithCapabilities(sc *runtime.LinuxContainerSecurityContext) oci.SpecOpts {
 	capabilities := sc.GetCapabilities()
 	if capabilities == nil {
@@ -636,4 +636,17 @@ func GetUTSNamespace(pid uint32) string {
 // GetPIDNamespace returns the pid namespace of a process.
 func GetPIDNamespace(pid uint32) string {
 	return fmt.Sprintf(pidNSFormat, pid)
+}
+
+// WithCapDropForNonRootUser drops effective and permitted capabilities
+// if the user is non-root.
+// See https://github.com/moby/moby/pull/36587.
+//
+// This option should be behind options for setting users and capabilities.
+func WithCapDropForNonRootUser(_ context.Context, _ oci.Client, _ *containers.Container, s *runtimespec.Spec) error {
+	if s.Process != nil && s.Process.User.UID != 0 && s.Process.Capabilities != nil {
+		s.Process.Capabilities.Effective = []string{}
+		s.Process.Capabilities.Permitted = []string{}
+	}
+	return nil
 }
