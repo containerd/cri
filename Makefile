@@ -103,7 +103,6 @@ test: ## unit test
 		-tags '$(BUILD_TAGS)' \
 	        -ldflags '$(GO_LDFLAGS)' \
 		-gcflags '$(GO_GCFLAGS)'
-endif
 
 $(BUILD_DIR)/integration.test: $(INTEGRATION_SOURCES)
 	@echo "$(WHALE) $@"
