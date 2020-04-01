@@ -19,7 +19,7 @@ set -o nounset
 set -o pipefail
 
 source $(dirname "${BASH_SOURCE[0]}")/utils.sh
-CONTAINERD_DIR=${CONTAINERD_DIR:-"${DESTDIR}/usr/local"}
+CONTAINERD_DIR=${CONTAINERD_DIR:-"${DESTDIR}/usr"}
 CONTAINERD_PKG=github.com/containerd/containerd
 
 # CHECKOUT_CONTAINERD indicates whether to checkout containerd repo.
