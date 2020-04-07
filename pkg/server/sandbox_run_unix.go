@@ -123,7 +123,7 @@ func (c *criService) sandboxContainerSpec(id string, config *runtime.PodSandboxC
 		return nil, errors.Wrapf(err, "failed to init selinux options %+v", securityContext.GetSelinuxOptions())
 	}
 	defer func() {
-		if retErr != nil && processLabel != "" {
+		if retErr != nil {
 			_ = label.ReleaseLabel(processLabel)
 		}
 	}()

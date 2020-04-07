@@ -93,11 +93,15 @@ func (c *criService) getSandboxDevShm(id string) string {
 	return filepath.Join(c.getVolatileSandboxRootDir(id), "shm")
 }
 
-func toLabel(selinuxOptions *runtime.SELinuxOption) (labels []string) {
-	if selinuxOptions == nil {
-		return nil
-	}
+func toLabel(selinuxOptions *runtime.SELinuxOption) ([]string, error) {
+	var labels []string
 
+	if selinuxOptions == nil {
+		return nil, nil
+	}
+	if err := checkSelinuxLevel(selinuxOptions.Level); err != nil {
+		return nil, err
+	}
 	if selinuxOptions.User != "" {
 		labels = append(labels, "user:"+selinuxOptions.User)
 	}
@@ -111,22 +115,15 @@ func toLabel(selinuxOptions *runtime.SELinuxOption) (labels []string) {
 		labels = append(labels, "level:"+selinuxOptions.Level)
 	}
 
-	return
+	return labels, nil
 }
 
 func initLabelsFromOpt(selinuxOpts *runtime.SELinuxOption) (string, string, error) {
-	return initLabels(toLabel(selinuxOpts))
-}
-
-func initLabels(options []string) (string, string, error) {
-	for _, opt := range options {
-		if strings.HasPrefix(opt, "level:") {
-			if err := checkSelinuxLevel(strings.TrimPrefix(opt, "level:")); err != nil {
-				return "", "", err
-			}
-		}
+	labels, err := toLabel(selinuxOpts)
+	if err != nil {
+		return "", "", err
 	}
-	return label.InitLabels(options)
+	return label.InitLabels(labels)
 }
 
 func checkSelinuxLevel(level string) error {
@@ -134,7 +131,7 @@ func checkSelinuxLevel(level string) error {
 		return nil
 	}
 
-	matched, err := regexp.MatchString(`^s\d(-s\d)??(:c\d{1,4}((.c\d{1,4})?,c\d{1,4})*(.c\d{1,4})?(,c\d{1,4}(.c\d{1,4})?)*)?$`, level)
+	matched, err := regexp.MatchString(`^s\d(-s\d)??(:c\d{1,4}(\.c\d{1,4})?(,c\d{1,4}(\.c\d{1,4})?)*)?$`, level)
 	if err != nil {
 		return errors.Wrapf(err, "the format of 'level' %q is not correct", level)
 	}

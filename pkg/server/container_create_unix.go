@@ -152,7 +152,10 @@ func (c *criService) containerSpec(id string, sandboxID string, sandboxPid uint3
 	specOpts = append(specOpts, oci.WithEnv(env))
 
 	securityContext := config.GetLinux().GetSecurityContext()
-	labelOptions := toLabel(securityContext.GetSelinuxOptions())
+	labelOptions, err := toLabel(securityContext.GetSelinuxOptions())
+	if err != nil {
+		return nil, err
+	}
 	if len(labelOptions) == 0 {
 		// Use pod level SELinux config
 		if sandbox, err := c.sandboxStore.Get(sandboxID); err == nil {
