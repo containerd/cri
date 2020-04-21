@@ -36,7 +36,7 @@ fi
 # by test containerd.
 CONTAINERD_TEST_SUFFIX=${CONTAINERD_TEST_SUFFIX:-}
 # The containerd root directory.
-CONTAINERD_ROOT=${CONTAINERD_ROOT:-"/var/lib/containerd${CONTAINERD_TEST_SUFFIX}"}
+CONTAINERD_ROOT=${CONTAINERD_ROOT:-"/var/lib/containers${CONTAINERD_TEST_SUFFIX}"}
 # The containerd state directory.
 CONTAINERD_STATE=${CONTAINERD_STATE:-"/run/containerd${CONTAINERD_TEST_SUFFIX}"}
 # The containerd socket address.
