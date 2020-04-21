@@ -17,9 +17,9 @@
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
 
 # Not from vendor.conf.
-CRITOOL_VERSION=v1.18.0
+CRITOOL_VERSION=selinux
 CRITOOL_PKG=github.com/kubernetes-sigs/cri-tools
-CRITOOL_REPO=github.com/kubernetes-sigs/cri-tools
+CRITOOL_REPO=github.com/erikwilson/cri-tools
 
 # VENDOR is the path to vendor.conf.
 VENDOR=${VENDOR:-"${ROOT}/vendor.conf"}
