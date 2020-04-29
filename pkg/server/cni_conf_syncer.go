@@ -47,11 +47,11 @@ func newCNINetConfSyncer(confDir string, netPlugin cni.CNI, loadOpts []cni.CNIOp
 	}
 
 	if err := os.MkdirAll(confDir, 0700); err != nil {
-		return nil, errors.Wrapf(err, "failed to create cni conf dir=%s for watch", confDir)
+		return nil, errors.Wrapf(err, "failed to create cni conf dir=%q for watch", confDir)
 	}
 
 	if err := watcher.Add(confDir); err != nil {
-		return nil, errors.Wrapf(err, "failed to watch cni conf dir %s", confDir)
+		return nil, errors.Wrapf(err, "failed to watch cni conf dir %q", confDir)
 	}
 
 	syncer := &cniNetConfSyncer{
@@ -61,10 +61,6 @@ func newCNINetConfSyncer(confDir string, netPlugin cni.CNI, loadOpts []cni.CNIOp
 		loadOpts:  loadOpts,
 	}
 
-	if err := syncer.netPlugin.Load(syncer.loadOpts...); err != nil {
-		logrus.WithError(err).Error("failed to load cni during init, please check CRI plugin status before setting up network for pods")
-		syncer.updateLastStatus(err)
-	}
 	return syncer, nil
 }
 
@@ -73,7 +69,11 @@ func newCNINetConfSyncer(confDir string, netPlugin cni.CNI, loadOpts []cni.CNIOp
 func (syncer *cniNetConfSyncer) syncLoop() error {
 	for {
 		select {
-		case event := <-syncer.watcher.Events:
+		case event, ok := <-syncer.watcher.Events:
+			if !ok {
+				// channel closed, return last status
+				return syncer.lastStatus()
+			}
 			// Only reload config when receiving write/rename/remove
 			// events
 			//

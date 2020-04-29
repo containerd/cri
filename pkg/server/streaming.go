@@ -66,23 +66,23 @@ func getStreamListenerMode(c *criService) (streamListenerMode, error) {
 	return withoutTLS, nil
 }
 
-func newStreamServer(c *criService, addr, port, streamIdleTimeout string) (streaming.Server, error) {
-	if addr == "" {
+func newStreamServer(c *criService) (streaming.Server, error) {
+	if c.config.StreamServerAddress == "" {
 		a, err := k8snet.ResolveBindAddress(nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get stream server address")
 		}
-		addr = a.String()
+		c.config.StreamServerAddress = a.String()
 	}
 	config := streaming.DefaultConfig
-	if streamIdleTimeout != "" {
+	if c.config.StreamIdleTimeout != "" {
 		var err error
-		config.StreamIdleTimeout, err = time.ParseDuration(streamIdleTimeout)
+		config.StreamIdleTimeout, err = time.ParseDuration(c.config.StreamIdleTimeout)
 		if err != nil {
 			return nil, errors.Wrap(err, "invalid stream idle timeout")
 		}
 	}
-	config.Addr = net.JoinHostPort(addr, port)
+	config.Addr = net.JoinHostPort(c.config.StreamServerAddress, c.config.StreamServerPort)
 	run := newStreamRuntime(c)
 	tlsMode, err := getStreamListenerMode(c)
 	if err != nil {
@@ -127,7 +127,7 @@ func newStreamRuntime(c *criService) streaming.Runtime {
 // returns non-zero exit code.
 func (s *streamRuntime) Exec(containerID string, cmd []string, stdin io.Reader, stdout, stderr io.WriteCloser,
 	tty bool, resize <-chan remotecommand.TerminalSize) error {
-	exitCode, err := s.c.execInContainer(ctrdutil.NamespacedContext(), containerID, execOptions{
+	exitCode, err := s.c.execInContainer(ctrdutil.NamespacedContext(s.c.name), containerID, execOptions{
 		cmd:    cmd,
 		stdin:  stdin,
 		stdout: stdout,
@@ -149,15 +149,14 @@ func (s *streamRuntime) Exec(containerID string, cmd []string, stdin io.Reader, 
 
 func (s *streamRuntime) Attach(containerID string, in io.Reader, out, err io.WriteCloser, tty bool,
 	resize <-chan remotecommand.TerminalSize) error {
-	return s.c.attachContainer(ctrdutil.NamespacedContext(), containerID, in, out, err, tty, resize)
+	return s.c.attachContainer(ctrdutil.NamespacedContext(s.c.name), containerID, in, out, err, tty, resize)
 }
 
 func (s *streamRuntime) PortForward(podSandboxID string, port int32, stream io.ReadWriteCloser) error {
 	if port <= 0 || port > math.MaxUint16 {
 		return errors.Errorf("invalid port %d", port)
 	}
-	ctx := ctrdutil.NamespacedContext()
-	return s.c.portForward(ctx, podSandboxID, port, stream)
+	return s.c.portForward(ctrdutil.NamespacedContext(s.c.name), podSandboxID, port, stream)
 }
 
 // handleResizing spawns a goroutine that processes the resize channel, calling resizeFunc for each

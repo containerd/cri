@@ -22,7 +22,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	containerstore "github.com/containerd/cri/pkg/store/container"
@@ -77,7 +76,7 @@ func TestToCRIContainer(t *testing.T) {
 }
 
 func TestFilterContainers(t *testing.T) {
-	c := newTestCRIService()
+	c, _ := newTestCRIService()
 
 	testContainers := []*runtime.Container{
 		{
@@ -168,7 +167,7 @@ func (c containerForTest) toContainer() (containerstore.Container, error) {
 }
 
 func TestListContainers(t *testing.T) {
-	c := newTestCRIService()
+	c, ctx := newTestCRIService()
 	sandboxesInStore := []sandboxstore.Sandbox{
 		sandboxstore.NewSandbox(
 			sandboxstore.Metadata{
@@ -333,7 +332,7 @@ func TestListContainers(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase: %s", testdesc)
-		resp, err := c.ListContainers(context.Background(), &runtime.ListContainersRequest{Filter: testdata.filter})
+		resp, err := c.ListContainers(ctx, &runtime.ListContainersRequest{Filter: testdata.filter})
 		assert.NoError(t, err)
 		require.NotNil(t, resp)
 		containers := resp.GetContainers()

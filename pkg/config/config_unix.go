@@ -19,16 +19,27 @@
 package config
 
 import (
+	"path/filepath"
+
 	"github.com/containerd/containerd"
 	"k8s.io/kubernetes/pkg/kubelet/server/streaming"
+
+	"github.com/containerd/cri/pkg/constants"
+)
+
+var (
+	// DefaultNetworkPluginBinDir is the default CNI directory for binaries
+	DefaultNetworkPluginBinDir = "/opt/cni/bin"
+	// DefaultNetworkPluginConfDir is the default CNI directory for configuration
+	DefaultNetworkPluginConfDir = "/etc/cni/net.d"
 )
 
 // DefaultConfig returns default configurations of cri plugin.
 func DefaultConfig() PluginConfig {
 	return PluginConfig{
 		CniConfig: CniConfig{
-			NetworkPluginBinDir:       "/opt/cni/bin",
-			NetworkPluginConfDir:      "/etc/cni/net.d",
+			NetworkPluginBinDir:       DefaultNetworkPluginBinDir,
+			NetworkPluginConfDir:      DefaultNetworkPluginConfDir,
 			NetworkPluginMaxConfNum:   1, // only one CNI plugin config file will be loaded
 			NetworkPluginConfTemplate: "",
 		},
@@ -66,4 +77,13 @@ func DefaultConfig() PluginConfig {
 		MaxConcurrentDownloads: 3,
 		DisableProcMount:       false,
 	}
+}
+
+// DefaultServiceConfig returns default configurations for a namespace.
+func DefaultServiceConfig(ns string) PluginConfig {
+	config := DefaultConfig()
+	if ns != constants.K8sContainerdNamespace {
+		config.NetworkPluginConfDir = filepath.Join("/opt/cri", ns, DefaultNetworkPluginConfDir)
+	}
+	return config
 }

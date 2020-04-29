@@ -22,14 +22,13 @@ import (
 	snapshot "github.com/containerd/containerd/snapshots"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	snapshotstore "github.com/containerd/cri/pkg/store/snapshot"
 )
 
 func TestImageFsInfo(t *testing.T) {
-	c := newTestCRIService()
+	c, ctx := newTestCRIService()
 	snapshots := []snapshotstore.Snapshot{
 		{
 			Key:       "key1",
@@ -62,7 +61,7 @@ func TestImageFsInfo(t *testing.T) {
 	for _, sn := range snapshots {
 		c.snapshotStore.Add(sn)
 	}
-	resp, err := c.ImageFsInfo(context.Background(), &runtime.ImageFsInfoRequest{})
+	resp, err := c.ImageFsInfo(ctx, &runtime.ImageFsInfoRequest{})
 	require.NoError(t, err)
 	stats := resp.GetImageFilesystems()
 	assert.Len(t, stats, 1)

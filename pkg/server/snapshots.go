@@ -20,12 +20,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/containerd/containerd/log"
+
 	"github.com/containerd/containerd/errdefs"
 	snapshot "github.com/containerd/containerd/snapshots"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	ctrdutil "github.com/containerd/cri/pkg/containerd/util"
 	snapshotstore "github.com/containerd/cri/pkg/store/snapshot"
 )
 
@@ -52,15 +53,15 @@ func newSnapshotsSyncer(store *snapshotstore.Store, snapshotter snapshot.Snapsho
 // start starts the snapshots syncer. No stop function is needed because
 // the syncer doesn't update any persistent states, it's fine to let it
 // exit with the process.
-func (s *snapshotsSyncer) start() {
+func (s *snapshotsSyncer) start(ctx context.Context) {
 	tick := time.NewTicker(s.syncPeriod)
 	go func() {
 		defer tick.Stop()
 		// TODO(random-liu): This is expensive. We should do benchmark to
 		// check the resource usage and optimize this.
 		for {
-			if err := s.sync(); err != nil {
-				logrus.WithError(err).Error("Failed to sync snapshot stats")
+			if err := s.sync(ctx); err != nil {
+				log.G(ctx).WithError(err).Error("Failed to sync snapshot stats")
 			}
 			<-tick.C
 		}
@@ -68,8 +69,7 @@ func (s *snapshotsSyncer) start() {
 }
 
 // sync updates all snapshots stats.
-func (s *snapshotsSyncer) sync() error {
-	ctx := ctrdutil.NamespacedContext()
+func (s *snapshotsSyncer) sync(ctx context.Context) error {
 	start := time.Now().UnixNano()
 	var snapshots []snapshot.Info
 	// Do not call `Usage` directly in collect function, because

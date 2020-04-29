@@ -19,6 +19,8 @@
 package server
 
 import (
+	"context"
+
 	"github.com/containerd/containerd/oci"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
@@ -34,7 +36,7 @@ func (c *criService) containerMounts(sandboxID string, config *runtime.Container
 	return nil
 }
 
-func (c *criService) containerSpec(id string, sandboxID string, sandboxPid uint32, netNSPath string, containerName string,
+func (c *criService) containerSpec(ctx context.Context, id string, sandboxID string, sandboxPid uint32, netNSPath string, containerName string,
 	config *runtime.ContainerConfig, sandboxConfig *runtime.PodSandboxConfig, imageConfig *imagespec.ImageConfig,
 	extraMounts []*runtime.Mount, ociRuntime config.Runtime) (*runtimespec.Spec, error) {
 	specOpts := []oci.SpecOpts{
@@ -92,7 +94,7 @@ func (c *criService) containerSpec(id string, sandboxID string, sandboxPid uint3
 		customopts.WithAnnotation(annotations.ContainerName, containerName),
 	)
 
-	return runtimeSpec(id, specOpts...)
+	return runtimeSpec(ctx, id, specOpts...)
 }
 
 // No extra spec options needed for windows.

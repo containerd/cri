@@ -195,7 +195,7 @@ func TestContainerStatus(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		c := newTestCRIService()
+		c, ctx := newTestCRIService()
 		metadata, status, image, expected := getContainerStatusTestData()
 		// Update status with test case.
 		status.FinishedAt = test.finishedAt
@@ -212,7 +212,7 @@ func TestContainerStatus(t *testing.T) {
 			c.imageStore, err = imagestore.NewFakeStore([]imagestore.Image{*image})
 			assert.NoError(t, err)
 		}
-		resp, err := c.ContainerStatus(context.Background(), &runtime.ContainerStatusRequest{ContainerId: container.ID})
+		resp, err := c.ContainerStatus(ctx, &runtime.ContainerStatusRequest{ContainerId: container.ID})
 		if test.expectErr {
 			assert.Error(t, err)
 			assert.Nil(t, resp)

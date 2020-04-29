@@ -136,6 +136,10 @@ func checkSelinuxLevel(level string) (bool, error) {
 	return true, nil
 }
 
+func (c *criServiceManager) apparmorEnabled() bool {
+	return runcapparmor.IsEnabled() && !c.config.DisableApparmor
+}
+
 func (c *criService) apparmorEnabled() bool {
 	return runcapparmor.IsEnabled() && !c.config.DisableApparmor
 }

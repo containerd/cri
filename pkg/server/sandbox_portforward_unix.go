@@ -28,7 +28,6 @@ import (
 	"github.com/containerd/containerd/log"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 )
@@ -93,10 +92,10 @@ func (c *criService) portForward(ctx context.Context, id string, port int32, str
 		}
 		go func() {
 			if _, err := io.Copy(in, stream); err != nil {
-				logrus.WithError(err).Errorf("Failed to copy port forward input for %q port %d", id, port)
+				log.G(ctx).WithError(err).Errorf("Failed to copy port forward input for %q port %d", id, port)
 			}
 			in.Close()
-			logrus.Debugf("Finish copying port forward input for %q port %d", id, port)
+			log.G(ctx).Debugf("Finish copying port forward input for %q port %d", id, port)
 		}()
 
 		if err := cmd.Run(); err != nil {

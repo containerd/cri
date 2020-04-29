@@ -51,12 +51,11 @@ func TestWaitSandboxStop(t *testing.T) {
 			expectErr: false,
 		},
 	} {
-		c := newTestCRIService()
+		c, ctx := newTestCRIService()
 		sandbox := sandboxstore.NewSandbox(
 			sandboxstore.Metadata{ID: id},
 			sandboxstore.Status{State: test.state},
 		)
-		ctx := context.Background()
 		if test.cancel {
 			cancelledCtx, cancel := context.WithCancel(ctx)
 			cancel()

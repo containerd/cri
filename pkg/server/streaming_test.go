@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/containerd/cri/pkg/config"
+	"github.com/containerd/cri/pkg/constants"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,8 +32,8 @@ func TestValidateStreamServer(t *testing.T) {
 	}{
 		"should pass with default withoutTLS": {
 			criService: &criService{
-				config: config.Config{
-					PluginConfig: config.DefaultConfig(),
+				config: serviceConfig{
+					PluginConfig: config.DefaultServiceConfig(constants.K8sContainerdNamespace),
 				},
 			},
 			tlsMode:   withoutTLS,
@@ -40,7 +41,7 @@ func TestValidateStreamServer(t *testing.T) {
 		},
 		"should pass with x509KeyPairTLS": {
 			criService: &criService{
-				config: config.Config{
+				config: serviceConfig{
 					PluginConfig: config.PluginConfig{
 						EnableTLSStreaming: true,
 						X509KeyPairStreaming: config.X509KeyPairStreaming{
@@ -55,7 +56,7 @@ func TestValidateStreamServer(t *testing.T) {
 		},
 		"should pass with selfSign": {
 			criService: &criService{
-				config: config.Config{
+				config: serviceConfig{
 					PluginConfig: config.PluginConfig{
 						EnableTLSStreaming: true,
 					},
@@ -66,7 +67,7 @@ func TestValidateStreamServer(t *testing.T) {
 		},
 		"should return error with X509 keypair but not EnableTLSStreaming": {
 			criService: &criService{
-				config: config.Config{
+				config: serviceConfig{
 					PluginConfig: config.PluginConfig{
 						EnableTLSStreaming: false,
 						X509KeyPairStreaming: config.X509KeyPairStreaming{
@@ -81,7 +82,7 @@ func TestValidateStreamServer(t *testing.T) {
 		},
 		"should return error with X509 TLSCertFile empty": {
 			criService: &criService{
-				config: config.Config{
+				config: serviceConfig{
 					PluginConfig: config.PluginConfig{
 						EnableTLSStreaming: true,
 						X509KeyPairStreaming: config.X509KeyPairStreaming{
@@ -96,7 +97,7 @@ func TestValidateStreamServer(t *testing.T) {
 		},
 		"should return error with X509 TLSKeyFile empty": {
 			criService: &criService{
-				config: config.Config{
+				config: serviceConfig{
 					PluginConfig: config.PluginConfig{
 						EnableTLSStreaming: true,
 						X509KeyPairStreaming: config.X509KeyPairStreaming{
@@ -111,7 +112,7 @@ func TestValidateStreamServer(t *testing.T) {
 		},
 		"should return error without EnableTLSStreaming and only TLSCertFile set": {
 			criService: &criService{
-				config: config.Config{
+				config: serviceConfig{
 					PluginConfig: config.PluginConfig{
 						EnableTLSStreaming: false,
 						X509KeyPairStreaming: config.X509KeyPairStreaming{
@@ -126,7 +127,7 @@ func TestValidateStreamServer(t *testing.T) {
 		},
 		"should return error without EnableTLSStreaming and only TLSKeyFile set": {
 			criService: &criService{
-				config: config.Config{
+				config: serviceConfig{
 					PluginConfig: config.PluginConfig{
 						EnableTLSStreaming: false,
 						X509KeyPairStreaming: config.X509KeyPairStreaming{

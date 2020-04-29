@@ -22,7 +22,6 @@ import (
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	imagestore "github.com/containerd/cri/pkg/store/image"
@@ -52,9 +51,9 @@ func TestImageStatus(t *testing.T) {
 		Username:    "user",
 	}
 
-	c := newTestCRIService()
+	c, ctx := newTestCRIService()
 	t.Logf("should return nil image spec without error for non-exist image")
-	resp, err := c.ImageStatus(context.Background(), &runtime.ImageStatusRequest{
+	resp, err := c.ImageStatus(ctx, &runtime.ImageStatusRequest{
 		Image: &runtime.ImageSpec{Image: testID},
 	})
 	assert.NoError(t, err)
@@ -65,7 +64,7 @@ func TestImageStatus(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Logf("should return correct image status for exist image")
-	resp, err = c.ImageStatus(context.Background(), &runtime.ImageStatusRequest{
+	resp, err = c.ImageStatus(ctx, &runtime.ImageStatusRequest{
 		Image: &runtime.ImageSpec{Image: testID},
 	})
 	assert.NoError(t, err)

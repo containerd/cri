@@ -30,6 +30,7 @@ import (
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/leases"
 	"github.com/containerd/containerd/log"
+	ctdnamespaces "github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/plugin"
 	"github.com/containerd/containerd/services"
@@ -63,7 +64,7 @@ func init() {
 func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 	ic.Meta.Platforms = []imagespec.Platform{platforms.DefaultSpec()}
 	ic.Meta.Exports = map[string]string{"CRIVersion": constants.CRIVersion}
-	ctx := ic.Context
+	ctx := ctdnamespaces.WithNamespace(ic.Context, "cri.containerd.io")
 	pluginConfig := ic.Config.(*criconfig.PluginConfig)
 	if err := criconfig.ValidatePluginConfig(ctx, pluginConfig); err != nil {
 		return nil, errors.Wrap(err, "invalid plugin config")
@@ -104,7 +105,7 @@ func initCRIService(ic *plugin.InitContext) (interface{}, error) {
 	}
 
 	go func() {
-		if err := s.Run(); err != nil {
+		if err := s.Run(ctx); err != nil {
 			log.G(ctx).WithError(err).Fatal("Failed to run CRI service")
 		}
 		// TODO(random-liu): Whether and how we can stop containerd.

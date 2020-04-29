@@ -25,7 +25,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	criconfig "github.com/containerd/cri/pkg/config"
@@ -103,7 +102,7 @@ func TestUpdateRuntimeConfig(t *testing.T) {
 			confDir := filepath.Join(testDir, "net.d")
 			confName := filepath.Join(confDir, cniConfigFileName)
 
-			c := newTestCRIService()
+			c, ctx := newTestCRIService()
 			c.config.CniConfig = criconfig.CniConfig{
 				NetworkPluginConfDir:      confDir,
 				NetworkPluginConfTemplate: templateName,
@@ -125,7 +124,7 @@ func TestUpdateRuntimeConfig(t *testing.T) {
 				c.netPlugin.(*servertesting.FakeCNIPlugin).StatusErr = errors.New("random error")
 				c.netPlugin.(*servertesting.FakeCNIPlugin).LoadErr = errors.New("random error")
 			}
-			_, err = c.UpdateRuntimeConfig(context.Background(), req)
+			_, err = c.UpdateRuntimeConfig(ctx, req)
 			assert.NoError(t, err)
 			if !test.expectCNIConfig {
 				_, err := os.Stat(confName)

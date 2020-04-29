@@ -67,6 +67,8 @@ const (
 	containersDir = "containers"
 	// Delimiter used to construct container/sandbox names.
 	nameDelimiter = "_"
+	// namespacesDir contains namespace configuration (toml), containers (dir), and sandboxes (dir)
+	namespacesDir = "namespaces"
 
 	// criContainerdPrefix is common prefix for cri-containerd
 	criContainerdPrefix = "io.cri-containerd"
@@ -79,11 +81,14 @@ const (
 	// imageLabelKey is the label key indicating the image is managed by cri plugin.
 	imageLabelKey = criContainerdPrefix + ".image"
 	// imageLabelValue is the label value indicating the image is managed by cri plugin.
-	imageLabelValue = "managed"
+	imageLabelValue = managedLabelValue
 	// sandboxMetadataExtension is an extension name that identify metadata of sandbox in CreateContainerRequest
 	sandboxMetadataExtension = criContainerdPrefix + ".sandbox.metadata"
 	// containerMetadataExtension is an extension name that identify metadata of container in CreateContainerRequest
 	containerMetadataExtension = criContainerdPrefix + ".container.metadata"
+
+	// managedLabelValue is the label value set for criContainerdPrefix labels indicating the resource is managed by cri
+	managedLabelValue = "managed"
 
 	// defaultIfName is the default network interface for the pods
 	defaultIfName = "eth0"
@@ -297,7 +302,7 @@ func parseImageReferences(refs []string) ([]string, []string) {
 }
 
 // generateRuntimeOptions generates runtime options from cri plugin config.
-func generateRuntimeOptions(r criconfig.Runtime, c criconfig.Config) (interface{}, error) {
+func generateRuntimeOptions(r criconfig.Runtime, c criconfig.PluginConfig) (interface{}, error) {
 	if r.Options == nil {
 		if r.Type != plugin.RuntimeLinuxV1 {
 			return nil, nil

@@ -148,12 +148,12 @@ func TestLinuxSandboxContainerSpec(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		c := newTestCRIService()
+		c, ctx := newTestCRIService()
 		config, imageConfig, specCheck := getRunPodSandboxTestData()
 		if test.configChange != nil {
 			test.configChange(config)
 		}
-		spec, err := c.sandboxContainerSpec(testID, config, imageConfig, nsPath, nil)
+		spec, err := c.sandboxContainerSpec(ctx, testID, config, imageConfig, nsPath, nil)
 		if test.expectErr {
 			assert.Error(t, err)
 			assert.Nil(t, spec)
@@ -337,7 +337,7 @@ options timeout:1
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		c := newTestCRIService()
+		c, _ := newTestCRIService()
 		c.os.(*ostesting.FakeOS).HostnameFn = func() (string, error) {
 			return realhostname, nil
 		}
@@ -410,9 +410,9 @@ options timeout:1
 
 func TestSandboxDisableCgroup(t *testing.T) {
 	config, imageConfig, _ := getRunPodSandboxTestData()
-	c := newTestCRIService()
+	c, ctx := newTestCRIService()
 	c.config.DisableCgroup = true
-	spec, err := c.sandboxContainerSpec("test-id", config, imageConfig, "test-cni", []string{})
+	spec, err := c.sandboxContainerSpec(ctx, "test-id", config, imageConfig, "test-cni", []string{})
 	require.NoError(t, err)
 
 	t.Log("resource limit should not be set")

@@ -19,6 +19,8 @@
 package server
 
 import (
+	"context"
+
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/oci"
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -30,7 +32,7 @@ import (
 	customopts "github.com/containerd/cri/pkg/containerd/opts"
 )
 
-func (c *criService) sandboxContainerSpec(id string, config *runtime.PodSandboxConfig,
+func (c *criService) sandboxContainerSpec(ctx context.Context, id string, config *runtime.PodSandboxConfig,
 	imageConfig *imagespec.ImageConfig, nsPath string, runtimePodAnnotations []string) (*runtimespec.Spec, error) {
 	// Creates a spec Generator with the default spec.
 	specOpts := []oci.SpecOpts{
@@ -67,7 +69,7 @@ func (c *criService) sandboxContainerSpec(id string, config *runtime.PodSandboxC
 		customopts.WithAnnotation(annotations.SandboxLogDir, config.GetLogDirectory()),
 	)
 
-	return runtimeSpec(id, specOpts...)
+	return runtimeSpec(ctx, id, specOpts...)
 }
 
 // No sandbox container spec options for windows yet.

@@ -61,14 +61,13 @@ func TestWaitContainerStop(t *testing.T) {
 			expectErr: false,
 		},
 	} {
-		c := newTestCRIService()
+		c, ctx := newTestCRIService()
 		container, err := containerstore.NewContainer(
 			containerstore.Metadata{ID: id},
 			containerstore.WithFakeStatus(*test.status),
 		)
 		assert.NoError(t, err)
 		assert.NoError(t, c.containerStore.Add(container))
-		ctx := context.Background()
 		if test.cancel {
 			cancelledCtx, cancel := context.WithCancel(ctx)
 			cancel()

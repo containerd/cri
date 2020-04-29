@@ -20,6 +20,7 @@ package server
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"os"
 	"strconv"
@@ -107,7 +108,7 @@ func (c *criService) containerMounts(sandboxID string, config *runtime.Container
 	return mounts
 }
 
-func (c *criService) containerSpec(id string, sandboxID string, sandboxPid uint32, netNSPath string, containerName string,
+func (c *criService) containerSpec(ctx context.Context, id string, sandboxID string, sandboxPid uint32, netNSPath string, containerName string,
 	config *runtime.ContainerConfig, sandboxConfig *runtime.PodSandboxConfig, imageConfig *imagespec.ImageConfig,
 	extraMounts []*runtime.Mount, ociRuntime config.Runtime) (*runtimespec.Spec, error) {
 
@@ -241,7 +242,7 @@ func (c *criService) containerSpec(id string, sandboxID string, sandboxPid uint3
 				Type: runtimespec.CgroupNamespace,
 			}))
 	}
-	return runtimeSpec(id, specOpts...)
+	return runtimeSpec(ctx, id, specOpts...)
 }
 
 func (c *criService) containerSpecOpts(config *runtime.ContainerConfig, imageConfig *imagespec.ImageConfig) ([]oci.SpecOpts, error) {

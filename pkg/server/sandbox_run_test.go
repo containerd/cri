@@ -29,6 +29,7 @@ import (
 
 	"github.com/containerd/cri/pkg/annotations"
 	criconfig "github.com/containerd/cri/pkg/config"
+	"github.com/containerd/cri/pkg/constants"
 	sandboxstore "github.com/containerd/cri/pkg/store/sandbox"
 )
 
@@ -87,7 +88,7 @@ func TestSandboxContainerSpec(t *testing.T) {
 		},
 	} {
 		t.Logf("TestCase %q", desc)
-		c := newTestCRIService()
+		c, ctx := newTestCRIService()
 		config, imageConfig, specCheck := getRunPodSandboxTestData()
 		if test.configChange != nil {
 			test.configChange(config)
@@ -96,7 +97,7 @@ func TestSandboxContainerSpec(t *testing.T) {
 		if test.imageConfigChange != nil {
 			test.imageConfigChange(imageConfig)
 		}
-		spec, err := c.sandboxContainerSpec(testID, config, imageConfig, nsPath,
+		spec, err := c.sandboxContainerSpec(ctx, testID, config, imageConfig, nsPath,
 			test.podAnnotations)
 		if test.expectErr {
 			assert.Error(t, err)
@@ -480,10 +481,8 @@ func TestGetSandboxRuntime(t *testing.T) {
 		},
 	} {
 		t.Run(desc, func(t *testing.T) {
-			cri := newTestCRIService()
-			cri.config = criconfig.Config{
-				PluginConfig: criconfig.DefaultConfig(),
-			}
+			cri, _ := newTestCRIService()
+			cri.config.PluginConfig = criconfig.DefaultServiceConfig(constants.K8sContainerdNamespace)
 			cri.config.ContainerdConfig.DefaultRuntimeName = criconfig.RuntimeDefault
 			cri.config.ContainerdConfig.Runtimes = test.runtimes
 			r, err := cri.getSandboxRuntime(test.sandboxConfig, test.runtimeHandler)

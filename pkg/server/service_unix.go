@@ -31,9 +31,7 @@ import (
 const networkAttachCount = 2
 
 // initPlatform handles linux specific initialization for the CRI service.
-func (c *criService) initPlatform() error {
-	var err error
-
+func (c *criServiceManager) initPlatform() error {
 	if runcsystem.RunningInUserNS() {
 		if !(c.config.DisableCgroup && !c.apparmorEnabled() && c.config.RestrictOOMScoreAdj) {
 			logrus.Warn("Running containerd in a user namespace typically requires disable_cgroup, disable_apparmor, restrict_oom_score_adj set to be true")
@@ -48,6 +46,12 @@ func (c *criService) initPlatform() error {
 		selinux.SetDisabled()
 	}
 
+	return nil
+}
+
+// initNetworking handles linux specific initialization for the CNI plugin.
+func (c *criService) initNetworking() error {
+	var err error
 	// Pod needs to attach to at least loopback network and a non host network,
 	// hence networkAttachCount is 2. If there are more network configs the
 	// pod will be attached to all the networks but we will only use the ip

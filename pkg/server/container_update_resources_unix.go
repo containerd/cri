@@ -82,7 +82,7 @@ func (c *criService) updateContainerResources(ctx context.Context,
 	}
 	defer func() {
 		if retErr != nil {
-			deferCtx, deferCancel := ctrdutil.DeferContext()
+			deferCtx, deferCancel := ctrdutil.DeferContext(c.name)
 			defer deferCancel()
 			// Reset spec on error.
 			if err := updateContainerSpec(deferCtx, cntr.Container, oldSpec); err != nil {

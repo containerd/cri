@@ -73,10 +73,10 @@ func getRunPodSandboxTestData() (*runtime.PodSandboxConfig, *imagespec.ImageConf
 func TestSandboxWindowsNetworkNamespace(t *testing.T) {
 	testID := "test-id"
 	nsPath := "test-cni"
-	c := newTestCRIService()
+	c, ctx := newTestCRIService()
 
 	config, imageConfig, specCheck := getRunPodSandboxTestData()
-	spec, err := c.sandboxContainerSpec(testID, config, imageConfig, nsPath, nil)
+	spec, err := c.sandboxContainerSpec(ctx, testID, config, imageConfig, nsPath, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, spec)
 	specCheck(t, testID, spec)

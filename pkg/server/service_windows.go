@@ -28,7 +28,12 @@ import (
 const windowsNetworkAttachCount = 1
 
 // initPlatform handles linux specific initialization for the CRI service.
-func (c *criService) initPlatform() error {
+func (c *criServiceManager) initPlatform() error {
+	return nil
+}
+
+// initNetworking handles windows specific initialization for the CNI plugin.
+func (c *criService) initNetworking() error {
 	var err error
 	// For windows, the loopback network is added as default.
 	// There is no need to explicitly add one hence networkAttachCount is 1.

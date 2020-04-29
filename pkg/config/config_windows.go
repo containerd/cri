@@ -24,15 +24,24 @@ import (
 
 	"github.com/containerd/containerd"
 	"k8s.io/kubernetes/pkg/kubelet/server/streaming"
+
+	"github.com/containerd/cri/pkg/constants"
+)
+
+var (
+	// DefaultNetworkPluginBinDir is the default CNI directory for binaries
+	DefaultNetworkPluginBinDir = filepath.Join(os.Getenv("ProgramFiles"), "containerd", "cni", "bin")
+	// DefaultNetworkPluginConfDir is the default CNI directory for configuration
+	DefaultNetworkPluginConfDir = filepath.Join(os.Getenv("ProgramFiles"), "containerd", "cni", "conf")
 )
 
 // DefaultConfig returns default configurations of cri plugin.
 func DefaultConfig() PluginConfig {
 	return PluginConfig{
 		CniConfig: CniConfig{
-			NetworkPluginBinDir:       filepath.Join(os.Getenv("ProgramFiles"), "containerd", "cni", "bin"),
-			NetworkPluginConfDir:      filepath.Join(os.Getenv("ProgramFiles"), "containerd", "cni", "conf"),
-			NetworkPluginMaxConfNum:   1,
+			NetworkPluginBinDir:       DefaultNetworkPluginBinDir,
+			NetworkPluginConfDir:      DefaultNetworkPluginConfDir,
+			NetworkPluginMaxConfNum:   1, // only one CNI plugin config file will be loaded
 			NetworkPluginConfTemplate: "",
 		},
 		ContainerdConfig: ContainerdConfig{
@@ -67,4 +76,13 @@ func DefaultConfig() PluginConfig {
 		MaxConcurrentDownloads: 3,
 		// TODO(windows): Add platform specific config, so that most common defaults can be shared.
 	}
+}
+
+// DefaultServiceConfig returns default configurations for a namespace.
+func DefaultServiceConfig(ns string) PluginConfig {
+	config := DefaultConfig()
+	if ns != constants.K8sContainerdNamespace {
+		config.NetworkPluginConfDir = filepath.Join(os.Getenv("ProgramFiles"), "containerd", "cri", ns, "cni", "conf")
+	}
+	return config
 }

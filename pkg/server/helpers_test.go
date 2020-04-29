@@ -157,7 +157,7 @@ func TestLocalResolve(t *testing.T) {
 		},
 		Size: 10,
 	}
-	c := newTestCRIService()
+	c, _ := newTestCRIService()
 	var err error
 	c.imageStore, err = imagestore.NewFakeStore([]imagestore.Image{image})
 	assert.NoError(t, err)
@@ -280,7 +280,7 @@ systemd_cgroup = true
 		},
 	} {
 		t.Run(desc, func(t *testing.T) {
-			opts, err := generateRuntimeOptions(test.r, test.c)
+			opts, err := generateRuntimeOptions(test.r, test.c.PluginConfig)
 			assert.NoError(t, err)
 			assert.Equal(t, test.expectedOptions, opts)
 		})

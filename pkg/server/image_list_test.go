@@ -22,14 +22,13 @@ import (
 	imagespec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 
 	imagestore "github.com/containerd/cri/pkg/store/image"
 )
 
 func TestListImages(t *testing.T) {
-	c := newTestCRIService()
+	c, ctx := newTestCRIService()
 	imagesInStore := []imagestore.Image{
 		{
 			ID:      "sha256:1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -102,7 +101,7 @@ func TestListImages(t *testing.T) {
 	c.imageStore, err = imagestore.NewFakeStore(imagesInStore)
 	assert.NoError(t, err)
 
-	resp, err := c.ListImages(context.Background(), &runtime.ListImagesRequest{})
+	resp, err := c.ListImages(ctx, &runtime.ListImagesRequest{})
 	assert.NoError(t, err)
 	require.NotNil(t, resp)
 	images := resp.GetImages()

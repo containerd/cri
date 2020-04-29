@@ -148,7 +148,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	}
 	log.G(ctx).Debugf("Use OCI runtime %+v for sandbox %q and container %q", ociRuntime, sandboxID, id)
 
-	spec, err := c.containerSpec(id, sandboxID, sandboxPid, sandbox.NetNSPath, containerName, config, sandboxConfig,
+	spec, err := c.containerSpec(ctx, id, sandboxID, sandboxPid, sandbox.NetNSPath, containerName, config, sandboxConfig,
 		&image.ImageSpec.Config, append(mounts, volumeMounts...), ociRuntime)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to generate container %q spec", id)
@@ -221,7 +221,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	}
 	defer func() {
 		if retErr != nil {
-			deferCtx, deferCancel := ctrdutil.DeferContext()
+			deferCtx, deferCancel := ctrdutil.DeferContext(c.name)
 			defer deferCancel()
 			if err := cntr.Delete(deferCtx, containerd.WithSnapshotCleanup); err != nil {
 				log.G(ctx).WithError(err).Errorf("Failed to delete containerd container %q", id)
@@ -285,9 +285,8 @@ func (c *criService) volumeMounts(containerRootDir string, criMounts []*runtime.
 }
 
 // runtimeSpec returns a default runtime spec used in cri-containerd.
-func runtimeSpec(id string, opts ...oci.SpecOpts) (*runtimespec.Spec, error) {
+func runtimeSpec(ctx context.Context, id string, opts ...oci.SpecOpts) (*runtimespec.Spec, error) {
 	// GenerateSpec needs namespace.
-	ctx := ctrdutil.NamespacedContext()
 	spec, err := oci.GenerateSpec(ctx, nil, &containers.Container{ID: id}, opts...)
 	if err != nil {
 		return nil, err

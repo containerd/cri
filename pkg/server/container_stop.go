@@ -77,7 +77,7 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 	// Handle unknown state.
 	if state == runtime.ContainerState_CONTAINER_UNKNOWN {
 		// Start an exit handler for containers in unknown state.
-		waitCtx, waitCancel := context.WithCancel(ctrdutil.NamespacedContext())
+		waitCtx, waitCancel := context.WithCancel(ctrdutil.NamespacedContext(c.name))
 		defer waitCancel()
 		exitCh, err := task.Wait(waitCtx)
 		if err != nil {
@@ -87,7 +87,7 @@ func (c *criService) stopContainer(ctx context.Context, container containerstore
 			return cleanupUnknownContainer(ctx, id, container)
 		}
 
-		exitCtx, exitCancel := context.WithCancel(context.Background())
+		exitCtx, exitCancel := context.WithCancel(ctrdutil.NamespacedContext(c.name))
 		stopCh := c.eventMonitor.startExitMonitor(exitCtx, id, task.Pid(), exitCh)
 		defer func() {
 			exitCancel()

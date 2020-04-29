@@ -114,7 +114,7 @@ func (c *criService) stopSandboxContainer(ctx context.Context, sandbox sandboxst
 	// The cleanup logic is the same with container unknown state.
 	if state == sandboxstore.StateUnknown {
 		// Start an exit handler for containers in unknown state.
-		waitCtx, waitCancel := context.WithCancel(ctrdutil.NamespacedContext())
+		waitCtx, waitCancel := context.WithCancel(ctrdutil.NamespacedContext(c.name))
 		defer waitCancel()
 		exitCh, err := task.Wait(waitCtx)
 		if err != nil {
@@ -124,7 +124,7 @@ func (c *criService) stopSandboxContainer(ctx context.Context, sandbox sandboxst
 			return cleanupUnknownSandbox(ctx, id, sandbox)
 		}
 
-		exitCtx, exitCancel := context.WithCancel(context.Background())
+		exitCtx, exitCancel := context.WithCancel(ctrdutil.NamespacedContext(c.name))
 		stopCh := c.eventMonitor.startExitMonitor(exitCtx, id, task.Pid(), exitCh)
 		defer func() {
 			exitCancel()
