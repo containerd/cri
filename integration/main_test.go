@@ -47,7 +47,7 @@ import (
 
 const (
 	timeout      = 1 * time.Minute
-	pauseImage   = "k8s.gcr.io/pause:3.2" // This is the same with default sandbox image.
+	pauseImage   = "k8s.gcr.io/pause:3.3" // This is the same with default sandbox image.
 	k8sNamespace = constants.K8sContainerdNamespace
 )
 

@@ -36,7 +36,7 @@ version = 2
   enable_selinux = false
 
   # sandbox_image is the image used by sandbox container.
-  sandbox_image = "k8s.gcr.io/pause:3.2"
+  sandbox_image = "k8s.gcr.io/pause:3.3"
 
   # stats_collect_period is the period (in seconds) of snapshots stats collection.
   stats_collect_period = 10
@@ -213,10 +213,10 @@ version = 2
     # key_model defines the name of the key model used for how the cri obtains
     # keys used for decryption of encrypted container images.
     # The [decryption document](https://github.com/containerd/cri/blob/master/docs/decryption.md)
-    # contains additional information about the key models available. 
+    # contains additional information about the key models available.
     #
     # Set of available string options: {"", "node"}
-    # Omission of this field defaults to the empty string "", which indicates no key model, 
+    # Omission of this field defaults to the empty string "", which indicates no key model,
     # disabling image decryption.
     #
     # In order to use the decryption feature, additional configurations must be made.
