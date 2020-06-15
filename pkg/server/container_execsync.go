@@ -172,6 +172,7 @@ func (c *criService) execInternal(ctx context.Context, container containerd.Cont
 	case exitRes := <-exitCh:
 		code, _, err := exitRes.Result()
 		log.G(ctx).Infof("Exec process %q exits with exit code %d and error %v", execID, code, err)
+		//execIO.Close()
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed while waiting for exec %q", execID)
 		}
