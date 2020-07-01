@@ -23,7 +23,6 @@ require (
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/emicklei/go-restful v2.9.5+incompatible
 	github.com/fsnotify/fsnotify v1.4.9
-	github.com/go-logr/logr v0.2.0 // indirect
 	github.com/gogo/googleapis v1.3.2 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
@@ -49,6 +48,6 @@ require (
 	k8s.io/client-go v0.19.0-beta.2
 	k8s.io/component-base v0.19.0-beta.2
 	k8s.io/cri-api v0.19.0-beta.2
-	k8s.io/klog/v2 v2.1.0
+	k8s.io/klog/v2 v2.2.0
 	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66
 )
