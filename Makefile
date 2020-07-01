@@ -82,7 +82,7 @@ update-vendor: sync-vendor sort-vendor ## Syncs containerd/vendor.conf -> vendor
 
 $(BUILD_DIR)/$(CONTAINERD_BIN): $(SOURCES) $(PLUGIN_SOURCES)
 	@echo "$(WHALE) $@"
-	$(GO) build -o $@ \
+	$(GO) build -mod=vendor -o $@ \
 		-tags '$(BUILD_TAGS)' \
 		-ldflags '$(GO_LDFLAGS)' \
 		-gcflags '$(GO_GCFLAGS)' \
@@ -90,14 +90,14 @@ $(BUILD_DIR)/$(CONTAINERD_BIN): $(SOURCES) $(PLUGIN_SOURCES)
 
 test: ## unit test
 	@echo "$(WHALE) $@"
-	$(GO) test -timeout=10m -race ./pkg/... \
+	$(GO) test -mod=vendor -timeout=10m -race ./pkg/... \
 		-tags '$(BUILD_TAGS)' \
 		-ldflags '$(GO_LDFLAGS)' \
 		-gcflags '$(GO_GCFLAGS)'
 
 $(BUILD_DIR)/integration.test: $(INTEGRATION_SOURCES)
 	@echo "$(WHALE) $@"
-	$(GO) test -c $(PROJECT)/integration -o $(BUILD_DIR)/integration.test
+	$(GO) test -mod=vendor -c $(PROJECT)/integration -o $(BUILD_DIR)/integration.test
 
 test-integration: $(BUILD_DIR)/integration.test binaries ## integration test
 	@echo "$(WHALE) $@"
