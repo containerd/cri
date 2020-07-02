@@ -115,12 +115,7 @@ const (
 	_TaskFDQuery
 	_MapLookupAndDeleteElem
 	_MapFreeze
-)
-
-const (
-	_Any = iota
-	_NoExist
-	_Exist
+	_BTFGetNextID
 )
 
 // ProgramType of the eBPF program
