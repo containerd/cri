@@ -145,10 +145,10 @@ jobs:
 
   test-windows:
     name: Build and CRI Test (Windows amd64)
-    runs-on: windows-latest
+    runs-on: windows-2019
     steps:
       - name: Set up Go 1.13.12
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
           go-version: 1.13.12
 
@@ -158,16 +158,15 @@ jobs:
           path: ${{github.workspace}}\\src\\github.com\\containerd\\cri
 
       - name: Clone containerd repo
-        run: |
-          bash.exe -c "GO111MODULE=off go get github.com/containerd/containerd"
-
+        shell: bash
+        run: GO111MODULE=off go get github.com/containerd/containerd
       - name: Configure Windows environment variables
         run: |
           echo "::set-env name=GOPATH::$env:GITHUB_WORKSPACE"
 
       - name: Build
-        run: |
-          bash.exe -c "pwd && ./test/windows/test.sh"
+        shell: bash
+        run: pwd && ./test/windows/test.sh
         working-directory: ${{github.workspace}}\\src\\github.com\\containerd\\cri
 
       - name: Upload containerd log file
