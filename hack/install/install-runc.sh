@@ -19,7 +19,7 @@ set -o nounset
 set -o pipefail
 
 source $(dirname "${BASH_SOURCE[0]}")/utils.sh
-RUNC_DIR=${DESTDIR}
+RUNC_DIR=${DESTDIR%/}
 RUNC_PKG=github.com/opencontainers/runc
 
 # Create a temporary GOPATH for runc installation.
@@ -30,7 +30,11 @@ from-vendor RUNC github.com/opencontainers/runc
 checkout_repo ${RUNC_PKG} ${RUNC_VERSION} ${RUNC_REPO}
 cd ${GOPATH}/src/${RUNC_PKG}
 make BUILDTAGS="$BUILDTAGS" VERSION=${RUNC_VERSION}
-${SUDO} make install -e DESTDIR=${RUNC_DIR}
+${SUDO} PATH="${PATH}" make install -e DESTDIR=${RUNC_DIR}
+
+if type -p sestatus chcon >/dev/null 2>&1; then
+  ${SUDO} chcon -v -t container_runtime_exec_t "${RUNC_DIR}/usr/local/sbin/runc"
+fi
 
 # Clean the tmp GOPATH dir. Use sudo because runc build generates
 # some privileged files.

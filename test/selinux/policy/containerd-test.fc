@@ -1,0 +1,6 @@
+# vim: sw=8:ts=8:et
+/var/lib/containerd-test(/.*)?                              gen_context(system_u:object_r:container_var_lib_t,s0)
+/var/lib/containerd-test/[^/]*/snapshots(/.*)?              gen_context(system_u:object_r:container_ro_file_t,s0)
+/var/lib/containerd-test/[^/]*/sandboxes(/.*)?              gen_context(system_u:object_r:container_ro_file_t,s0)
+/var/run/containerd-test(/.*)?                              gen_context(system_u:object_r:container_var_run_t,s0)
+/var/run/containerd-test/[^/]*/sandboxes/[^/]*/shm(/.*)?    gen_context(system_u:object_r:container_runtime_tmpfs_t,s0)

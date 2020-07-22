@@ -62,11 +62,27 @@ test_setup() {
   fi
   # rename the test containerd binary, so that we can easily
   # distinguish it.
-  cp ${ROOT}/_output/containerd ${ROOT}/_output/${CONTAINERD_BIN}
+  : GOBIN=${GOBIN:-$(go env GOBIN)}
+  : GOBIN=${GOBIN:=/usr/local/bin}
+  sudo mkdir -vp ${GOBIN%/}
+  sudo cp -vf ${ROOT}/_output/containerd ${GOBIN%/}/${CONTAINERD_BIN}
+  if type -p sestatus chcon >/dev/null 2>&1; then
+    sudo chcon -v -t container_runtime_exec_t ${GOBIN%/}/${CONTAINERD_BIN}
+  fi
+  if (command -v getenforce >/dev/null 2>&1) && [ "$(getenforce)" = "Enforcing" ]; then
+    set -e
+    make -f /usr/share/selinux/devel/Makefile -C "${ROOT}/test/selinux/policy" clean containerd-test.pp
+    sudo semodule -i "${ROOT}/test/selinux/policy/containerd-test.pp"
+#    sudo semodule -e containerd-test
+    sudo rm -fr "${CONTAINERD_ROOT}" "${CONTAINERD_STATE}"
+    sudo mkdir -vp "${CONTAINERD_ROOT}" "${CONTAINERD_STATE}"
+    sudo restorecon -rv "${CONTAINERD_ROOT}" "${CONTAINERD_STATE}"
+    set +e
+  fi
   set -m
   # Create containerd in a different process group
   # so that we can easily clean them up.
-  keepalive "sudo PATH=${PATH} ${ROOT}/_output/${CONTAINERD_BIN} ${CONTAINERD_FLAGS}" \
+  keepalive "sudo PATH=${PATH} ${GOBIN%/}/${CONTAINERD_BIN} ${CONTAINERD_FLAGS}" \
     ${RESTART_WAIT_PERIOD} &> ${report_dir}/containerd.log &
   pid=$!
   set +m

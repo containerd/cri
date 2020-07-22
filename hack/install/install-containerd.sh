@@ -19,7 +19,7 @@ set -o nounset
 set -o pipefail
 
 source $(dirname "${BASH_SOURCE[0]}")/utils.sh
-CONTAINERD_DIR=${CONTAINERD_DIR:-"${DESTDIR}/usr/local"}
+CONTAINERD_DIR=${CONTAINERD_DIR:-"${DESTDIR%/}/usr/local"}
 CONTAINERD_PKG=github.com/containerd/containerd
 
 # CHECKOUT_CONTAINERD indicates whether to checkout containerd repo.
@@ -41,7 +41,11 @@ make BUILDTAGS="${BUILDTAGS}"
 # set PATH to make sure it can find `go` even with `sudo`.
 # The single quote is required because containerd Makefile
 # can't handle spaces in the path.
-${SUDO} make install -e DESTDIR="'${CONTAINERD_DIR}'"
+${SUDO} PATH="${PATH}" make install -e DESTDIR="'${CONTAINERD_DIR}'"
+
+if type -p sestatus chcon >/dev/null 2>&1; then
+  ${SUDO} chcon -v -t container_runtime_exec_t ${CONTAINERD_DIR}/bin/containerd*
+fi
 
 # Clean the tmp GOPATH dir.
 if ${CHECKOUT_CONTAINERD}; then

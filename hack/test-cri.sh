@@ -17,7 +17,9 @@
 set -o nounset
 set -o pipefail
 
+set -e
 source $(dirname "${BASH_SOURCE[0]}")/test-utils.sh
+set +e
 
 # FOCUS focuses the test to run.
 FOCUS=${FOCUS:-}
@@ -27,6 +29,8 @@ SKIP=${SKIP:-""}
 REPORT_DIR=${REPORT_DIR:-"/tmp/test-cri"}
 # RUNTIME is the runtime handler to use in the test.
 RUNTIME=${RUNTIME:-""}
+# SEED seeds ginkgo spec randomization.
+SEED=${SEED:-$(printf '%(%s)T' -1)} # the ginkgo cli will not parse an empty string value
 
 # Check GOPATH
 if [[ -z "${GOPATH}" ]]; then
@@ -61,7 +65,7 @@ mkdir -p ${REPORT_DIR}
 test_setup ${REPORT_DIR}
 
 # Run cri validation test
-sudo env PATH=${PATH} GOPATH=${GOPATH} ${CRITEST} --runtime-endpoint=${CONTAINERD_SOCK} --ginkgo.focus="${FOCUS}" --ginkgo.skip="${SKIP}" --parallel=8 --runtime-handler=${RUNTIME}
+sudo env PATH=${PATH} GOPATH=${GOPATH} ${CRITEST} --runtime-endpoint=${CONTAINERD_SOCK} --ginkgo.focus="${FOCUS}" --ginkgo.skip="${SKIP}" --ginkgo.seed="${SEED}" --parallel=8 --runtime-handler=${RUNTIME}
 test_exit_code=$?
 
 test_teardown

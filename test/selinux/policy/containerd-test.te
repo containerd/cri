@@ -1,0 +1,40 @@
+policy_module(containerd-test, 1.0.0)
+
+gen_require(`
+    type container_runtime_t, container_var_lib_t, container_ro_file_t;
+')
+filetrans_pattern(container_runtime_t, container_var_lib_t, container_ro_file_t, dir, "snapshots")
+
+#gen_require(`
+#    type container_runtime_t, container_var_run_t, container_runtime_tmpfs_t;
+#')
+#filetrans_pattern(container_runtime_t, container_var_run_t, container_runtime_tmpfs_t, dir, "shm")
+
+gen_require(`
+    type container_runtime_t, container_var_lib_t, container_file_t;
+')
+filetrans_pattern(container_runtime_t, container_var_lib_t, container_file_t, dir, "pods")
+
+gen_require(`
+    type container_runtime_t, var_log_t, container_log_t;
+')
+filetrans_pattern(container_runtime_t, var_log_t, container_log_t, dir, "pods")
+filetrans_pattern(container_runtime_t, var_log_t, container_log_t, dir, "containers")
+
+
+# FIXES: runtime should support HostIpc is true
+# https://github.com/containers/container-selinux/pull/49/files
+kernel_get_sysvipc_info(container_t)
+gen_require(`
+        type container_t, unconfined_t, container_runtime_t;
+        attribute container_domain;
+        attribute container_runtime_domain;
+')
+allow container_domain unconfined_t:sem create_sem_perms;
+allow container_domain unconfined_t:shm create_shm_perms;
+allow container_domain unconfined_t:msgq create_msgq_perms;
+allow container_domain container_domain:dir { getattr ioctl lock open read search };
+allow container_domain container_runtime_domain:dir { getattr ioctl lock open read search };
+# https://github.com/containers/container-selinux/compare/v2.137.0...master#diff-9379fc754c7c98684d25e7b3819a2de9R541
+# https://bugzilla.redhat.com/show_bug.cgi?id=1456963
+#allow container_domain container_runtime_t:fifo_file { rw_fifo_file_perms map };

@@ -1,0 +1,281 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+GOPATH = ENV['GOPATH']
+VM_CPU = ENV['VM_CPU'] || 2
+VM_MEM = ENV['VM_MEM'] || 2048
+
+Vagrant.configure("2") do |config|
+
+  config.vm.box = "centos/8/cri"
+  config.vm.box_url = "https://cloud.centos.org/centos/8/x86_64/images/CentOS-8-Vagrant-8.2.2004-20200611.2.x86_64.vagrant-virtualbox.box"
+  config.vm.box_download_checksum = "698b0d9c6c3f31a4fd1c655196a5f7fc224434112753ab6cb3218493a86202de"
+  config.vm.box_download_checksum_type = "sha256"
+  config.vm.network "private_network", type: "dhcp"
+
+  if GOPATH.to_s.length > 0
+    config.vm.synced_folder GOPATH, GOPATH
+  end
+
+  if Vagrant.has_plugin?("vagrant-timezone")
+    config.timezone.value = :host
+  end
+
+  if Vagrant.has_plugin?("vagrant-vbguest")
+    config.vm.provider "virtualbox" do |vb|
+      vb.gui = false
+      vb.cpus = VM_CPU
+      vb.memory = VM_MEM
+      vb.customize ["modifyvm", :id, "--audio", "none"]
+    end
+  end
+
+  config.vm.provision "ipv4-forwarding", type: "shell", run: "once", inline: <<-SHELL
+    echo 'net.ipv4.conf.all.forwarding = 1' > /etc/sysctl.d/55-ipv4-forwarding.conf
+  SHELL
+
+  config.vm.provision "ipv6-forwarding", type: "shell", run: "once", inline: <<-SHELL
+    echo 'net.ipv6.conf.all.forwarding = 1' > /etc/sysctl.d/55-ipv6-forwarding.conf
+  SHELL
+
+  config.vm.provision "apply-sysctl", type: "shell", run: "always", inline: <<-SHELL
+    set -x
+    systemctl restart systemd-sysctl
+  SHELL
+
+  config.vm.provision "disable-firewalld", type: "shell", run: "once", inline: <<-SHELL
+    set -x
+    systemctl disable --now firewalld
+  SHELL
+
+  # Disabled by default. To run:
+  #   vagrant up --provision-with=yum-upgrade
+  #
+  config.vm.provision "yum-upgrade", type: "shell", run: "never", inline: <<-SHELL
+    set -x
+    yum -y upgrade
+  SHELL
+
+  config.vm.provision "yum-install-devel", type: "shell", run: "once", inline: <<-SHELL
+    set -x
+    yum -y install \
+        container-selinux \
+        curl \
+        git \
+        less \
+        libseccomp-devel \
+        libselinux-devel \
+        libsemanage \
+        policycoreutils-devel \
+        selinux-policy \
+        selinux-policy-devel \
+        selinux-policy-targeted \
+        setools-console \
+        socat \
+        vim \
+        wget
+  SHELL
+
+  config.vm.provision "install-golang", type: "shell", run: "once" do |sh|
+    sh.env = {
+        'INSTALL_GO_VERSION': ENV['INSTALL_GO_VERSION'] || "1.13.14",
+        'INSTALL_GOPATH': GOPATH,
+    }
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash
+        yum -y install golang
+        _GO_DIR="/usr/lib/go${INSTALL_GO_VERSION}"
+        _GO_TMP=$(mktemp -p /tmp -d go.XXXX)
+        curl -fsSL "https://golang.org/dl/go${INSTALL_GO_VERSION}.linux-amd64.tar.gz" | tar -xz --strip=1 -C "${_GO_TMP}"
+        rm -fr "${_GO_DIR}"
+        mv -f "${_GO_TMP}" "${_GO_DIR}"
+        chmod -v og+rx "${_GO_DIR}"
+        rm -fv /usr/bin/{go,gofmt}
+        ln -fnsv "${_GO_DIR}/bin/go" "${_GO_DIR}/bin/gofmt" /usr/bin/
+        echo "export GOPATH=$INSTALL_GOPATH" > /etc/profile.d/golang.sh
+        source /etc/profile.d/golang.sh
+        (set -x; go env)
+    SHELL
+  end
+
+  config.vm.provision "install-ginkgo", type: "shell", run: "once" do |sh|
+    sh.env = { 'GOBIN': '/usr/bin', 'GOPATH': '/usr' }
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash
+        go get github.com/onsi/ginkgo/ginkgo
+        type ginkgo
+    SHELL
+  end
+
+  config.vm.provision "install-cri-tools", type: "shell", run: "once" do |sh|
+    sh.env = {
+        'CRI_TOOLS_VERSION': ENV['CRI_TOOLS_VERSION'] || 'baca4a152dfe671fc17911a7af74bcb61680ee39',
+        'GOBIN': '/usr/bin',
+        'GOPATH': '/usr',
+    }
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash
+        if [ ! -d /usr/src/github.com/kubernetes-sigs/cri-tools ]; then
+          git clone https://github.com/kubernetes-sigs/cri-tools.git /usr/src/github.com/kubernetes-sigs/cri-tools
+        fi
+        pushd /usr/src/github.com/kubernetes-sigs/cri-tools
+        git checkout $CRI_TOOLS_VERSION
+        make GOPATH=$GOPATH
+        make BINDIR=$GOBIN install
+        type crictl critest
+    SHELL
+  end
+
+  config.vm.provision "install-cni-plugins", type: "shell", run: "once" do |sh|
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash -x
+        set -x
+        # install cni plugins v0.8.3+
+        yum -y install \
+            containernetworking-plugins
+
+        # the ipv6 cidr for containerd/cri tests currently begets errors for cni plugins 0.8.x
+        # uncomment these once the containerd/cri codebase is updated to leverage libcni+plugins 0.8.x
+        # (and remember to remove invoking hack/install/install-cni.sh from the readme/test recipe)
+        #mkdir -p /opt/cni/bin
+        #ln -fnsv /usr/libexec/cni/* /opt/cni/bin/
+    SHELL
+  end
+
+  config.vm.provision "install-runc", type: "shell", run: "once" do |sh|
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash
+        set -x
+        yum -y install \
+            runc
+    SHELL
+  end
+
+  # Disabled by default. To run:
+  #   vagrant up --provision-with=clone-container-selinux
+  #
+  config.vm.provision "clone-container-selinux", type: "shell", run: "never", inline: <<-SHELL
+    #!/usr/bin/env bash
+    if [ ! -d /usr/src/container-selinux ]; then
+      git clone https://github.com/containers/container-selinux.git /usr/src/container-selinux
+    fi
+  SHELL
+
+  # Easy one-liner install for comparative testing, i.e. answering the question:
+  # "Well, does crio-o pass critest with selinux enforcing?" (Currently, no).
+  #
+  # Disabled by default. To run:
+  #   vagrant up --provision-with=install-cri-o
+  #
+  # Don't forget to `vagrant ssh` into the guest and invoke:
+  #   sudo systemctl enable --now crio
+  #
+  config.vm.provision "install-cri-o", type: "shell", run: "never" do |sh|
+    sh.env = { 'VERSION': ENV['CRIO_VERSION'] || '1.18' }
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash
+        dnf -y install 'dnf-command(copr)'
+        dnf -y copr enable rhcontainerbot/container-selinux
+
+        curl -fsSL -o /etc/yum.repos.d/devel:kubic:libcontainers:stable.repo \
+            https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/CentOS_8/devel:kubic:libcontainers:stable.repo
+        curl -fsSL -o /etc/yum.repos.d/devel:kubic:libcontainers:stable:cri-o:${VERSION}.repo \
+            https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable:cri-o:${VERSION}/CentOS_8/devel:kubic:libcontainers:stable:cri-o:${VERSION}.repo
+
+        (set -x; yum -y install cri-o)
+
+        ln -nfsv /usr/bin/conmon /usr/libexec/crio/
+        type crio
+    SHELL
+  end
+
+  # Easy one-liner install to enable `make test-integration` (requires docker running)
+  #
+  # Disabled by default. To run:
+  #   vagrant up --provision-with=install-docker
+  #
+  # Don't forget to `vagrant ssh` into the guest and invoke:
+  #   sudo systemctl enable --now docker
+  #
+  config.vm.provision "install-docker", type: "shell", run: "never" do |sh|
+    sh.env = {
+        'INSTALL_CONTAINERD_VERSION': ENV['INSTALL_CONTAINERD_VERSION'] || '1.2.13-3.2.el7',
+        'INSTALL_DOCKER_CE_VERSION': ENV['INSTALL_DOCKER_CE_VERSION'] || '19.03.12-3.el7',
+    }
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash
+        dnf -y config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+        sed -i '/^gpgkey[=].*[/]gpg/a module_hotfixes=True' /etc/yum.repos.d/docker-ce.repo
+        (set -x; dnf -y install --nobest \
+            containerd.io-${INSTALL_CONTAINERD_VERSION} \
+            docker-ce-${INSTALL_DOCKER_CE_VERSION} \
+            docker-ce-cli-${INSTALL_DOCKER_CE_VERSION}
+        )
+        # enable cri by default (containerd installed by docker disables cri via config)
+        truncate --reference /dev/null /etc/containerd/config.toml
+
+        # configure dockerd
+        mkdir -p /etc/docker
+        cat > /etc/docker/daemon.json << EOF
+        {
+          "log-driver": "json-file",
+          "log-opts": {
+            "max-size": "100m"
+          },
+          "selinux-enabled": true,
+          "storage-driver": "overlay2",
+          "storage-opts": [
+            "overlay2.override_kernel_check=true"
+          ]
+        }
+EOF
+        # disable dockerd
+        systemctl daemon-reload
+        systemctl disable --now docker
+        # enable sudo-less docker for vagrant user
+        usermod -aG docker vagrant
+    SHELL
+  end
+
+  # Required to support k3s but also useful for differential debugging of various runtimes i.e.,
+  # seeing which failures from critest pass after installing the k3s policy.
+  # See:
+  # - https://github.com/rancher/k3s-selinux/blob/master/k3s.te
+  #
+  # Disabled by default. To run:
+  #   vagrant up --provision-with=install-k3s-selinux
+  #
+  config.vm.provision "install-k3s-selinux", type: "shell", run: "never" do |sh|
+    sh.env = { 'K3S_SELINUX_RPM': ENV['K3S_SELINUX_RPM'] || 'https://github.com/rancher/k3s-selinux/releases/download/v0.1.1-rc1/k3s-selinux-0.1.1-rc1.el7.noarch.rpm' }
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash
+        set -x
+        yum -y install \
+            container-selinux \
+            selinux-policy-base \
+            "${K3S_SELINUX_RPM}"
+    SHELL
+  end
+
+  # Easy one-liner install for comparative testing, i.e. answering the question:
+  # "Well, does rancher/cri (bundled in k3s) pass critest with selinux enforcing?" (Currently, no).
+  # All services are disabled so if you start up k3s and then shutdown there will be no
+  # containerd-shim processes hanging around, possibly interfering with a manual invocation of k3s's containerd, i.e.:
+  #  /var/lib/rancher/
+  #
+  # Disabled by default. To run:
+  #   vagrant up --provision-with=install-k3s-selinux,install-k3s-server
+  #
+  config.vm.provision "install-k3s-server", type: "shell", run: "never" do |sh|
+    sh.inline = <<-SHELL
+        #!/usr/bin/env bash
+        set -x
+        curl -fsSL https://get.k3s.io | env \
+            INSTALL_K3S_BIN_DIR=/usr/bin \
+            INSTALL_K3S_SKIP_ENABLE=true \
+            INSTALL_K3S_EXEC="--disable=coredns,local-storage,metrics-server,servicelb,traefik" \
+          sh -
+    SHELL
+  end
+
+end
