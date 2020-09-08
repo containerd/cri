@@ -1161,26 +1161,31 @@ func TestPrivilegedDevices(t *testing.T) {
 		privileged                   bool
 		privilegedWithoutHostDevices bool
 		expectHostDevices            bool
+		expectAllDevicesAllowed      bool
 	}{
 		"expect no host devices when privileged is false": {
 			privileged:                   false,
 			privilegedWithoutHostDevices: false,
 			expectHostDevices:            false,
+			expectAllDevicesAllowed:      false,
 		},
 		"expect no host devices when privileged is false and privilegedWithoutHostDevices is true": {
 			privileged:                   false,
 			privilegedWithoutHostDevices: true,
 			expectHostDevices:            false,
+			expectAllDevicesAllowed:      false,
 		},
 		"expect host devices when privileged is true": {
 			privileged:                   true,
 			privilegedWithoutHostDevices: false,
 			expectHostDevices:            true,
+			expectAllDevicesAllowed:      true,
 		},
 		"expect no host devices when privileged is true and privilegedWithoutHostDevices is true": {
 			privileged:                   true,
 			privilegedWithoutHostDevices: true,
 			expectHostDevices:            false,
+			expectAllDevicesAllowed:      true,
 		},
 	} {
 		t.Logf("TestCase %q", desc)
@@ -1209,6 +1214,10 @@ func TestPrivilegedDevices(t *testing.T) {
 		} else {
 			assert.Empty(t, spec.Linux.Devices)
 		}
+
+		assert.Len(t, spec.Linux.Resources.Devices, 1)
+		assert.Equal(t, spec.Linux.Resources.Devices[0].Allow, test.expectAllDevicesAllowed)
+		assert.Equal(t, spec.Linux.Resources.Devices[0].Access, "rwm")
 	}
 }
 

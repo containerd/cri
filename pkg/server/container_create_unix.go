@@ -193,9 +193,9 @@ func (c *criService) containerSpec(id string, sandboxID string, sandboxPid uint3
 		if !sandboxConfig.GetLinux().GetSecurityContext().GetPrivileged() {
 			return nil, errors.New("no privileged container allowed in sandbox")
 		}
-		specOpts = append(specOpts, oci.WithPrivileged)
+		specOpts = append(specOpts, oci.WithPrivileged, oci.WithAllDevicesAllowed)
 		if !ociRuntime.PrivilegedWithoutHostDevices {
-			specOpts = append(specOpts, oci.WithHostDevices, oci.WithAllDevicesAllowed)
+			specOpts = append(specOpts, oci.WithHostDevices)
 		} else {
 			// add requested devices by the config as host devices are not automatically added
 			specOpts = append(specOpts, customopts.WithDevices(c.os, config), customopts.WithCapabilities(securityContext))
