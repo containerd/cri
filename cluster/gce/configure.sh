@@ -69,7 +69,7 @@ fetch_env() {
     fi
     echo "${tmp_env_content}" > "${tmp_env_file}"
     # Convert the yaml format file into a shell-style file.
-    eval $(python -c '''
+    eval $(${PYTHON} -c '''
 import pipes,sys,yaml
 if sys.version_info[0] < 3:
     items = yaml.load(sys.stdin).iteritems()
