@@ -34,7 +34,6 @@ else
   fi
 fi
 echo "Version : " $(${PYTHON} -V 2>&1)
-
 # CONTAINERD_HOME is the directory for containerd.
 CONTAINERD_HOME="/home/containerd"
 cd "${CONTAINERD_HOME}"
