@@ -19,8 +19,8 @@ jobs:
       - name: Set env
         shell: bash
         run: |
-          echo "::set-env name=GOPATH::${{ github.workspace }}"
-          echo "::add-path::${{ github.workspace }}/bin"
+          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - name: Checkout cri repo
         uses: actions/checkout@v2
@@ -87,8 +87,8 @@ jobs:
       - name: Set env
         shell: bash
         run: |
-          echo "::set-env name=GOPATH::${{ github.workspace }}"
-          echo "::add-path::${{ github.workspace }}/bin"
+          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - name: Checkout cri repo
         uses: actions/checkout@v2
@@ -158,16 +158,20 @@ jobs:
           path: ${{github.workspace}}\\src\\github.com\\containerd\\cri
 
       - name: Clone containerd repo
+        shell: bash
         run: |
-          bash.exe -c "GO111MODULE=off go get github.com/containerd/containerd"
+          GO111MODULE=off go get github.com/containerd/containerd
 
       - name: Configure Windows environment variables
+        shell: bash
         run: |
-          echo "::set-env name=GOPATH::$env:GITHUB_WORKSPACE"
+          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - name: Build
+        shell: bash
         run: |
-          bash.exe -c "pwd && ./test/windows/test.sh"
+          pwd && ./test/windows/test.sh
         working-directory: ${{github.workspace}}\\src\\github.com\\containerd\\cri
 
       - name: Upload containerd log file
