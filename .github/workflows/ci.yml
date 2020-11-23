@@ -78,6 +78,11 @@ jobs:
   linux-build-and-test:
     name: Build, Unit, Integration, and CRI (linux amd64)
     runs-on: ubuntu-18.04
+
+    strategy:
+      matrix:
+        runtime: [io.containerd.runtime.v1.linux, io.containerd.runc.v1, io.containerd.runc.v2]
+
     steps:
       - name: Install Go
         uses: actions/setup-go@v1
@@ -122,8 +127,10 @@ jobs:
         working-directory: ${{github.workspace}}/src/github.com/containerd/cri
 
       - name: Integration Test
+        env:
+          TEST_RUNTIME: ${{ matrix.runtime }}
         run: |
-          make test-integration
+          CONTAINERD_RUNTIME=$TEST_RUNTIME make test-integration
         working-directory: ${{github.workspace}}/src/github.com/containerd/cri
 
       - name: Upload Integration Log File
