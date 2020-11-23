@@ -23,6 +23,19 @@ CONTAINERD_FLAGS="--log-level=debug "
 
 # Use a configuration file for containerd.
 CONTAINERD_CONFIG_FILE=${CONTAINERD_CONFIG_FILE:-""}
+# The runtime to use (ignored when CONTAINERD_CONFIG_FILE is set)
+CONTAINERD_RUNTIME=${CONTAINERD_RUNTIME:-""}
+if [ -z "${CONTAINERD_CONFIG_FILE}" ]; then
+  config_file="/tmp/containerd-config-cri.toml"
+  if [ -n "${CONTAINERD_RUNTIME}" ]; then
+    cat >${config_file} <<EOF
+[plugins.cri.containerd.default_runtime]
+  runtime_type="${CONTAINERD_RUNTIME}"
+EOF
+  fi
+  CONTAINERD_CONFIG_FILE="${config_file}"
+fi
+
 # CONTAINERD_TEST_SUFFIX is the suffix appended to the root/state directory used
 # by test containerd.
 CONTAINERD_TEST_SUFFIX=${CONTAINERD_TEST_SUFFIX:-"-test"}
