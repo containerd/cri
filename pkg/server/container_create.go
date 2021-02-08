@@ -101,6 +101,11 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		return nil, errors.Wrapf(err, "failed to get image from containerd %q", image.ID)
 	}
 
+	imageConfig := imagespec.ImageConfig{}
+	if err := util.DeepCopy(&imageConfig, &image.ImageSpec.Config); err != nil {
+		return nil, errors.Wrapf(err, "failed to clone image spec config %q", image.ID)
+	}
+
 	// Run container using the same runtime with sandbox.
 	sandboxInfo, err := sandbox.Container.Info(ctx)
 	if err != nil {
@@ -140,8 +145,8 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	var volumeMounts []*runtime.Mount
 	if !c.config.IgnoreImageDefinedVolumes {
 		// Create container image volumes mounts.
-		volumeMounts = c.volumeMounts(containerRootDir, config.GetMounts(), &image.ImageSpec.Config)
-	} else if len(image.ImageSpec.Config.Volumes) != 0 {
+		volumeMounts = c.volumeMounts(containerRootDir, config.GetMounts(), &imageConfig)
+	} else if len(imageConfig.Volumes) != 0 {
 		log.G(ctx).Debugf("Ignoring volumes defined in image %v because IgnoreImageDefinedVolumes is set", image.ID)
 	}
 
@@ -155,7 +160,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	log.G(ctx).Debugf("Use OCI runtime %+v for sandbox %q and container %q", ociRuntime, sandboxID, id)
 
 	spec, err := c.containerSpec(id, sandboxID, sandboxPid, sandbox.NetNSPath, containerName, config, sandboxConfig,
-		&image.ImageSpec.Config, append(mounts, volumeMounts...), ociRuntime)
+		&imageConfig, append(mounts, volumeMounts...), ociRuntime)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to generate container %q spec", id)
 	}
@@ -198,7 +203,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		opts = append(opts, customopts.WithVolumes(mountMap))
 	}
 	meta.ImageRef = image.ID
-	meta.StopSignal = image.ImageSpec.Config.StopSignal
+	meta.StopSignal = imageConfig.StopSignal
 
 	// Validate log paths and compose full container log path.
 	if sandboxConfig.GetLogDirectory() != "" && config.GetLogPath() != "" {
@@ -223,7 +228,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		}
 	}()
 
-	specOpts, err := c.containerSpecOpts(config, &image.ImageSpec.Config)
+	specOpts, err := c.containerSpecOpts(config, &imageConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "")
 	}
