@@ -82,7 +82,7 @@ update-vendor: sync-vendor sort-vendor ## Syncs containerd/vendor.conf -> vendor
 
 $(BUILD_DIR)/$(CONTAINERD_BIN): $(SOURCES) $(PLUGIN_SOURCES)
 	@echo "$(WHALE) $@"
-	$(GO) build -o $@ \
+	GO111MODULE=off $(GO) build -o $@ \
 		-tags '$(BUILD_TAGS)' \
 		-ldflags '$(GO_LDFLAGS)' \
 		-gcflags '$(GO_GCFLAGS)' \
