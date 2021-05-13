@@ -14,13 +14,13 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v1
         with:
-          go-version: '1.13.15'
+          go-version: '1.15.5'
 
       - name: Set env
         shell: bash
         run: |
-          echo "::set-env name=GOPATH::${{ github.workspace }}"
-          echo "::add-path::${{ github.workspace }}/bin"
+          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - name: Checkout cri repo
         uses: actions/checkout@v2
@@ -78,17 +78,22 @@ jobs:
   linux-build-and-test:
     name: Build, Unit, Integration, and CRI (linux amd64)
     runs-on: ubuntu-18.04
+
+    strategy:
+      matrix:
+        runtime: [io.containerd.runtime.v1.linux, io.containerd.runc.v1, io.containerd.runc.v2]
+
     steps:
       - name: Install Go
         uses: actions/setup-go@v1
         with:
-          go-version: '1.13.15'
+          go-version: '1.15.5'
 
       - name: Set env
         shell: bash
         run: |
-          echo "::set-env name=GOPATH::${{ github.workspace }}"
-          echo "::add-path::${{ github.workspace }}/bin"
+          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - name: Checkout cri repo
         uses: actions/checkout@v2
@@ -122,8 +127,10 @@ jobs:
         working-directory: ${{github.workspace}}/src/github.com/containerd/cri
 
       - name: Integration Test
+        env:
+          TEST_RUNTIME: ${{ matrix.runtime }}
         run: |
-          make test-integration
+          CONTAINERD_RUNTIME=$TEST_RUNTIME make test-integration
         working-directory: ${{github.workspace}}/src/github.com/containerd/cri
 
       - name: Upload Integration Log File
@@ -147,10 +154,10 @@ jobs:
     name: Build and CRI Test (Windows amd64)
     runs-on: windows-2016
     steps:
-      - name: Set up Go 1.13.15
+      - name: Set up Go 1.15.5
         uses: actions/setup-go@v1
         with:
-          go-version: 1.13.15
+          go-version: 1.15.5
 
       - name: Checkout cri repo
         uses: actions/checkout@v2
@@ -158,16 +165,20 @@ jobs:
           path: ${{github.workspace}}\\src\\github.com\\containerd\\cri
 
       - name: Clone containerd repo
+        shell: bash
         run: |
-          bash.exe -c "GO111MODULE=off go get github.com/containerd/containerd"
+          GO111MODULE=off go get github.com/containerd/containerd
 
       - name: Configure Windows environment variables
+        shell: bash
         run: |
-          echo "::set-env name=GOPATH::$env:GITHUB_WORKSPACE"
+          echo "GOPATH=${{ github.workspace }}" >> $GITHUB_ENV
+          echo "${{ github.workspace }}/bin" >> $GITHUB_PATH
 
       - name: Build
+        shell: bash
         run: |
-          bash.exe -c "pwd && ./test/windows/test.sh"
+          pwd && ./test/windows/test.sh
         working-directory: ${{github.workspace}}\\src\\github.com\\containerd\\cri
 
       - name: Upload containerd log file
