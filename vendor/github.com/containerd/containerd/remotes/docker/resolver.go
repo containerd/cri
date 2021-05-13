@@ -295,12 +295,14 @@ func (r *dockerResolver) Resolve(ctx context.Context, ref string) (string, ocisp
 				if lastErr == nil {
 					lastErr = err
 				}
+				log.G(ctx).WithError(err).Info("trying next host")
 				continue // try another host
 			}
 			resp.Body.Close() // don't care about body contents.
 
 			if resp.StatusCode > 299 {
 				if resp.StatusCode == http.StatusNotFound {
+					log.G(ctx).Info("trying next host - response was http.StatusNotFound")
 					continue
 				}
 				return "", ocispec.Descriptor{}, errors.Errorf("unexpected status code %v: %v", u, resp.Status)
@@ -525,7 +527,10 @@ func (r *request) do(ctx context.Context) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header = r.header
+	req.Header = http.Header{} // headers need to be copied to avoid concurrent map access
+	for k, v := range r.header {
+		req.Header[k] = v
+	}
 	if r.body != nil {
 		body, err := r.body()
 		if err != nil {

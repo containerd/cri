@@ -104,7 +104,7 @@ func parseFlags() {
 	flag.BoolVar(&versionFlag, "v", false, "show the shim version and exit")
 	flag.StringVar(&namespaceFlag, "namespace", "", "namespace that owns the shim")
 	flag.StringVar(&idFlag, "id", "", "id of the task")
-	flag.StringVar(&socketFlag, "socket", "", "abstract socket path to serve")
+	flag.StringVar(&socketFlag, "socket", "", "socket path to serve")
 	flag.StringVar(&bundlePath, "bundle", "", "path to the bundle if not workdir")
 
 	flag.StringVar(&addressFlag, "address", "", "grpc address back to main containerd")
@@ -195,7 +195,6 @@ func run(id string, initFunc Init, config Config) error {
 	ctx = context.WithValue(ctx, OptsKey{}, Opts{BundlePath: bundlePath, Debug: debugFlag})
 	ctx = log.WithLogger(ctx, log.G(ctx).WithField("runtime", id))
 	ctx, cancel := context.WithCancel(ctx)
-
 	service, err := initFunc(ctx, idFlag, publisher, cancel)
 	if err != nil {
 		return err
@@ -240,6 +239,13 @@ func run(id string, initFunc Init, config Config) error {
 				return err
 			}
 		}
+
+		// NOTE: If the shim server is down(like oom killer), the address
+		// socket might be leaking.
+		if address, err := ReadAddress("address"); err == nil {
+			_ = RemoveSocket(address)
+		}
+
 		select {
 		case <-publisher.Done():
 			return nil
