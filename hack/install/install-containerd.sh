@@ -36,7 +36,7 @@ fi
 
 # Install containerd
 cd ${GOPATH}/src/${CONTAINERD_PKG}
-make BUILDTAGS="${BUILDTAGS}"
+make BUILDTAGS="${BUILDTAGS}" GO111MODULE=off
 # containerd make install requires `go` to work. Explicitly
 # set PATH to make sure it can find `go` even with `sudo`.
 # The single quote is required because containerd Makefile

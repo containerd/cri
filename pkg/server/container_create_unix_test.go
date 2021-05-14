@@ -1202,7 +1202,7 @@ func TestPrivilegedDevices(t *testing.T) {
 		var hostDevices []*libcontainerconfigs.Device
 		for _, dev := range hostDevicesRaw {
 			// https://github.com/containerd/cri/pull/1521#issuecomment-652807951
-			if dev.DeviceRule.Major != 0 {
+			if dev.Rule.Major != 0 {
 				hostDevices = append(hostDevices, dev)
 			}
 		}

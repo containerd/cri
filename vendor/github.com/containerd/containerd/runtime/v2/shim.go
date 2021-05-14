@@ -76,7 +76,13 @@ func loadShim(ctx context.Context, bundle *Bundle, events *exchange.Exchange, rt
 			conn.Close()
 		}
 	}()
-	f, err := openShimLog(ctx, bundle, client.AnonReconnectDialer)
+	shimCtx, cancelShimLog := context.WithCancel(ctx)
+	defer func() {
+		if err != nil {
+			cancelShimLog()
+		}
+	}()
+	f, err := openShimLog(shimCtx, bundle, client.AnonReconnectDialer)
 	if err != nil {
 		return nil, errors.Wrap(err, "open shim log pipe")
 	}
@@ -99,8 +105,12 @@ func loadShim(ctx context.Context, bundle *Bundle, events *exchange.Exchange, rt
 			}
 		}
 	}()
-
-	client := ttrpc.NewClient(conn, ttrpc.WithOnClose(onClose))
+	onCloseWithShimLog := func() {
+		onClose()
+		cancelShimLog()
+		f.Close()
+	}
+	client := ttrpc.NewClient(conn, ttrpc.WithOnClose(onCloseWithShimLog))
 	defer func() {
 		if err != nil {
 			client.Close()
@@ -433,10 +443,14 @@ func (s *shim) Stats(ctx context.Context) (*ptypes.Any, error) {
 }
 
 func (s *shim) Process(ctx context.Context, id string) (runtime.Process, error) {
-	return &process{
+	p := &process{
 		id:   id,
 		shim: s,
-	}, nil
+	}
+	if _, err := p.State(ctx); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func (s *shim) State(ctx context.Context) (runtime.State, error) {

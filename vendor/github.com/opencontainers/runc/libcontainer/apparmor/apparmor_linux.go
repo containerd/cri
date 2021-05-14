@@ -1,32 +1,41 @@
-// +build apparmor,linux
-
 package apparmor
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"github.com/opencontainers/runc/libcontainer/utils"
 )
 
+var (
+	appArmorEnabled bool
+	checkAppArmor   sync.Once
+)
+
 // IsEnabled returns true if apparmor is enabled for the host.
 func IsEnabled() bool {
-	if _, err := os.Stat("/sys/kernel/security/apparmor"); err == nil && os.Getenv("container") == "" {
-		if _, err = os.Stat("/sbin/apparmor_parser"); err == nil {
+	checkAppArmor.Do(func() {
+		if _, err := os.Stat("/sys/kernel/security/apparmor"); err == nil {
 			buf, err := ioutil.ReadFile("/sys/module/apparmor/parameters/enabled")
-			return err == nil && len(buf) > 1 && buf[0] == 'Y'
+			appArmorEnabled = err == nil && len(buf) > 1 && buf[0] == 'Y'
 		}
-	}
-	return false
+	})
+	return appArmorEnabled
 }
 
 func setProcAttr(attr, value string) error {
 	// Under AppArmor you can only change your own attr, so use /proc/self/
 	// instead of /proc/<tid>/ like libapparmor does
-	path := fmt.Sprintf("/proc/self/attr/%s", attr)
+	attrPath := "/proc/self/attr/apparmor/" + attr
+	if _, err := os.Stat(attrPath); errors.Is(err, os.ErrNotExist) {
+		// fall back to the old convention
+		attrPath = "/proc/self/attr/" + attr
+	}
 
-	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	f, err := os.OpenFile(attrPath, os.O_WRONLY, 0)
 	if err != nil {
 		return err
 	}
@@ -36,14 +45,13 @@ func setProcAttr(attr, value string) error {
 		return err
 	}
 
-	_, err = fmt.Fprintf(f, "%s", value)
+	_, err = f.WriteString(value)
 	return err
 }
 
 // changeOnExec reimplements aa_change_onexec from libapparmor in Go
 func changeOnExec(name string) error {
-	value := "exec " + name
-	if err := setProcAttr("exec", value); err != nil {
+	if err := setProcAttr("exec", "exec "+name); err != nil {
 		return fmt.Errorf("apparmor failed to apply profile: %s", err)
 	}
 	return nil
