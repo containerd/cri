@@ -170,6 +170,7 @@ func (c *Client) dispatch(ctx context.Context, req *Request, resp *Response) err
 
 func (c *Client) Close() error {
 	c.closeOnce.Do(func() {
+		c.userCloseFunc()
 		c.closed()
 	})
 	return nil
@@ -250,7 +251,6 @@ func (c *Client) run() {
 
 	defer func() {
 		c.conn.Close()
-		c.userCloseFunc()
 	}()
 
 	for {
